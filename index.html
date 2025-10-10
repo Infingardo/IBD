@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBD Diagnostic Tool - Ultimate</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel Standalone per JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
+        
+        // Componenti icone Lucide
+        const Microscope = () => <i data-lucide="microscope"></i>;
+        const FileText = () => <i data-lucide="file-text"></i>;
+        const User = () => <i data-lucide="user"></i>;
+        const Info = () => <i data-lucide="info"></i>;
+        const CheckCircle = () => <i data-lucide="check-circle"></i>;
+        const AlertTriangle = () => <i data-lucide="alert-triangle"></i>;
+
+        const IBDDiagnosticTool = () => {
+            const [activeTab, setActiveTab] = useState('clinical');
+            const [patientData, setPatientData] = useState({
+                age: '',
+                gender: '',
+                clinicalHistory: ''
+            });
+            const [findings, setFindings] = useState({});
+            const [cd3Count, setCd3Count] = useState('');
+
+            // Carica dati da localStorage
+            useEffect(() => {
+                const savedData = localStorage.getItem('ibdAppData');
+                if (savedData) {
+                    try {
+                        const parsed = JSON.parse(savedData);
+                        if (parsed.patientData) setPatientData(parsed.patientData);
+                        if (parsed.findings) setFindings(parsed.findings);
+                        if (parsed.cd3Count !== undefined) setCd3Count(parsed.cd3Count);
+                    } catch (e) {
+                        console.error('Errore caricamento:', e);
+                    }
+                }
+            }, []);
+
+            // Salva dati in localStorage
+            useEffect(() => {
+                const dataToSave = { patientData, findings, cd3Count, lastUpdated: new Date().toISOString() };
+                localStorage.setItem('ibdAppData', JSON.stringify(dataToSave));
+            }, [patientData, findings, cd3Count]);
+
+            // Inizializza icone Lucide
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, [activeTab, findings, cd3Count]);
+
+            const findingsDatabase = {
+                architectural: {
+                    title: "Alterazioni Architetturali (Cronicità)",
+                    color: "bg-purple-50 border-purple-300",
+                    items: {
+                        glandular_distortion: {
+                            name: "Distorsione ghiandolare",
+                            desc: "Cripte ramificate, accorciate, distribuzione irregolare",
+                            weight: { lieve: 1.5, moderata: 3, severa: 4.5 }
+                        },
+                        glandular_atrophy: {
+                            name: "Atrofia ghiandolare",
+                            desc: "Riduzione numerica delle cripte, spaziatura aumentata",
+                            weight: { lieve: 1, moderata: 2, severa: 3 }
+                        },
+                        paneth_metaplasia: {
+                            name: "Metaplasia di Paneth (colon sx)",
+                            desc: "Cellule di Paneth ectopiche nel colon",
+                            weight: { lieve: 1, moderata: 2, severa: 2.5 }
+                        },
+                        mucin_depletion: {
+                            name: "Deplezione mucinica",
+                            desc: "Riduzione/assenza goblet cells",
+                            weight: { lieve: 1, moderata: 2, severa: 3 }
+                        }
+                    }
+                },
+                inflammation: {
+                    title: "Pattern Infiammatorio",
+                    color: "bg-red-50 border-red-300",
+                    items: {
+                        chronic_inflammation: {
+                            name: "Infiammazione cronica (linfoplasmacellulare)",
+                            desc: "Infiltrato cronico nella lamina propria",
+                            weight: { lieve: 1, moderata: 2, severa: 3 }
+                        },
+                        basal_plasmacytosis: {
+                            name: "Plasmacitosi basale",
+                            desc: "Accumulo plasmacellule alla base delle cripte",
+                            weight: { lieve: 2, moderata: 4, severa: 5 }
+                        },
+                        cryptitis: {
+                            name: "Criptite",
+                            desc: "Neutrofili nell'epitelio delle cripte",
+                            weight: { lieve: 1, moderata: 2, severa: 3 }
+                        },
+                        crypt_abscesses: {
+                            name: "Ascessi criptici",
+                            desc: "Neutrofili nel lume ghiandolare",
+                            weight: { lieve: 2, moderata: 3, severa: 4 }
+                        },
+                        mucosal_only: {
+                            name: "Infiammazione limitata a mucosa",
+                            desc: "Confinata a mucosa/sottomucosa superficiale",
+                            weight: { lieve: 2, moderata: 3, severa: 4 }
+                        },
+                        transmural: {
+                            name: "Infiammazione transmurale",
+                            desc: "Infiltrato in tutti gli strati della parete",
+                            weight: { lieve: 4, moderata: 6, severa: 8 },
+                            pathognomonic: true
+                        },
+                        fissuring_ulcers: {
+                            name: "Ulcere fissuriformi",
+                            desc: "Ulcere lineari profonde",
+                            weight: { lieve: 3, moderata: 5, severa: 7 }
+                        }
+                    }
+                },
+                specific: {
+                    title: "Reperti Patognomonici",
+                    color: "bg-orange-50 border-orange-300",
+                    items: {
+                        granulomas: {
+                            name: "GRANULOMI epitelioidi non-caseosi",
+                            desc: "Aggregati epitelioidi con/senza cellule giganti",
+                            weight: { lieve: 10, moderata: 10, severa: 10 },
+                            pathognomonic: true,
+                            note: "Presente solo 20-40% biopsie CD"
+                        },
+                        collagenous_band: {
+                            name: "BANDA COLLAGENA subepiteliale >10μm",
+                            desc: "Deposito collagene ispessito",
+                            weight: { lieve: 10, moderata: 10, severa: 10 },
+                            pathognomonic: true
+                        },
+                        cd3_elevated: {
+                            name: "CD3+ Linfociti T intraepiteliali",
+                            desc: "Conteggio linfociti intraepiteliali (IEL) per 100 enterociti. Cut-off diagnostico: >20/100",
+                            weight: { lieve: 10, moderata: 10, severa: 10 },
+                            pathognomonic: true,
+                            numericInput: true
+                        }
+                    }
+                },
+                dysplasia: {
+                    title: "Displasia/Neoplasia",
+                    color: "bg-pink-50 border-pink-300",
+                    items: {
+                        lgd: {
+                            name: "Displasia di BASSO grado (LGD)",
+                            desc: "Alterazioni citologiche lievi-moderate",
+                            weight: { lieve: 0, moderata: 0, severa: 0 },
+                            complication: true
+                        },
+                        hgd: {
+                            name: "Displasia di ALTO grado (HGD)",
+                            desc: "Severa atipia, loss polarità",
+                            weight: { lieve: 0, moderata: 0, severa: 0 },
+                            complication: true,
+                            urgent: true
+                        },
+                        p53_aberrant: {
+                            name: "p53 aberrante (IHC)",
+                            desc: "Overespressione >60% o loss completa",
+                            weight: { lieve: 0, moderata: 0, severa: 0 },
+                            complication: true
+                        }
+                    }
+                },
+                other_colitis: {
+                    title: "Altre Forme di Colite (non-IBD)",
+                    color: "bg-teal-50 border-teal-300",
+                    items: {
+                        ischemic_pattern: {
+                            name: "Pattern ischemico",
+                            desc: "Necrosi superficiale, ghost cells, ialinosi LP",
+                            weight: { lieve: 3, moderata: 6, severa: 9 }
+                        },
+                        pseudomembranes: {
+                            name: "Pseudomembrane",
+                            desc: "Essudato fibrinopurulento aderente",
+                            weight: { lieve: 5, moderata: 8, severa: 10 },
+                            pathognomonic: true
+                        },
+                        cmv_inclusions: {
+                            name: "Inclusioni CMV",
+                            desc: "Cellule con inclusioni a occhio di civetta",
+                            weight: { lieve: 10, moderata: 10, severa: 10 },
+                            pathognomonic: true
+                        },
+                        increased_eosinophils: {
+                            name: "Eosinofili aumentati (>50/HPF)",
+                            desc: "Infiltrato eosinofilo marcato",
+                            weight: { lieve: 2, moderata: 4, severa: 6 }
+                        },
+                        apoptotic_bodies: {
+                            name: "Corpi apoptotici aumentati (>6/10 cripte)",
+                            desc: "Apoptosi epiteliale marcata",
+                            weight: { lieve: 3, moderata: 5, severa: 7 }
+                        },
+                        diaphragm_disease: {
+                            name: "Diaphragm disease / erosioni multiple",
+                            desc: "Pattern caratteristico da FANS",
+                            weight: { lieve: 4, moderata: 6, severa: 8 }
+                        }
+                    }
+                }
+            };
+
+            const updateFinding = (category, key, severity) => {
+                setFindings(prev => ({ ...prev, [`${category}_${key}`]: severity }));
+            };
+
+            const getFindingSeverity = (category, key) => {
+                return findings[`${category}_${key}`] || 'assente';
+            };
+
+            const calculateDiagnosis = () => {
+                const history = patientData.clinicalHistory.toLowerCase();
+                const hasUC = history.includes('rcu') || history.includes('colite ulcerosa') || history.includes('rettocolite');
+                const hasCD = history.includes('crohn') || history.includes('malattia di crohn');
+
+                const getWeight = (category, key, severity) => {
+                    if (severity === 'assente') return 0;
+                    const finding = findingsDatabase[category]?.items[key];
+                    if (!finding || !finding.weight) return 0;
+                    return finding.weight[severity] || 0;
+                };
+
+                // LIVELLO 1: PATOGNOMONICI
+                if (getFindingSeverity('specific', 'granulomas') !== 'assente') {
+                    return {
+                        primary: 'MORBO DI CROHN (CD)',
+                        confidence: 95,
+                        level: 'PATOGNOMONICO',
+                        color: 'bg-red-100 border-red-400',
+                        supportive: ['Granulomi epitelioidi non-caseosi (patognomonico)'],
+                        recommendations: ['Diagnosi definitiva per CD', 'Granulomi presenti solo nel 20-40% delle biopsie CD']
+                    };
+                }
+
+                if (getFindingSeverity('specific', 'collagenous_band') !== 'assente') {
+                    return {
+                        primary: 'COLITE COLLAGENOSICA',
+                        confidence: 95,
+                        level: 'PATOGNOMONICO',
+                        color: 'bg-teal-100 border-teal-400',
+                        supportive: ['Banda collagena subepiteliale >10μm (patognomonico)'],
+                        recommendations: ['Diagnosi definitiva', 'Terapia: budesonide']
+                    };
+                }
+
+                if (cd3Count && parseInt(cd3Count) > 20) {
+                    return {
+                        primary: 'COLITE LINFOCITICA',
+                        confidence: 95,
+                        level: 'PATOGNOMONICO',
+                        color: 'bg-teal-100 border-teal-400',
+                        supportive: [`CD3+ ${cd3Count}/100 enterociti (>20, patognomonico)`],
+                        recommendations: ['Diagnosi definitiva', 'Terapia: budesonide']
+                    };
+                }
+
+                // LIVELLO 2: DISPLASIA
+                const hasHGD = getFindingSeverity('dysplasia', 'hgd') !== 'assente';
+                const hasLGD = getFindingSeverity('dysplasia', 'lgd') !== 'assente';
+
+                if (hasHGD) {
+                    return {
+                        primary: 'DISPLASIA DI ALTO GRADO (HGD)',
+                        confidence: 85,
+                        level: 'URGENTE',
+                        color: 'bg-pink-100 border-pink-400',
+                        supportive: ['HGD morfologica'],
+                        recommendations: ['⚠️ URGENTE: Discussione chirurgica', 'Conferma con secondo patologo']
+                    };
+                }
+
+                if (hasLGD) {
+                    return {
+                        primary: 'DISPLASIA DI BASSO GRADO (LGD)',
+                        confidence: 80,
+                        level: 'SORVEGLIANZA',
+                        color: 'bg-pink-100 border-pink-300',
+                        supportive: ['LGD morfologica'],
+                        recommendations: ['Conferma con secondo patologo', 'Follow-up ravvicinato']
+                    };
+                }
+
+                // LIVELLO 3: ALTRE COLITI
+                if (getFindingSeverity('other_colitis', 'cmv_inclusions') !== 'assente') {
+                    return {
+                        primary: 'COLITE DA CMV',
+                        confidence: 95,
+                        level: 'INFEZIONE',
+                        color: 'bg-yellow-100 border-yellow-400',
+                        supportive: ['Inclusioni CMV'],
+                        recommendations: ['Terapia antivirale']
+                    };
+                }
+
+                if (getFindingSeverity('other_colitis', 'pseudomembranes') !== 'assente') {
+                    return {
+                        primary: 'COLITE PSEUDOMEMBRANOSA (C. difficile)',
+                        confidence: 90,
+                        level: 'INFEZIONE',
+                        color: 'bg-yellow-100 border-yellow-400',
+                        supportive: ['Pseudomembrane'],
+                        recommendations: ['Test C. difficile', 'Terapia: vancomicina']
+                    };
+                }
+
+                // LIVELLO 4: IBD
+                let ucScore = 0, cdScore = 0;
+                const supportive = [];
+
+                ucScore += getWeight('architectural', 'glandular_distortion', getFindingSeverity('architectural', 'glandular_distortion')) * 1.5;
+                ucScore += getWeight('inflammation', 'basal_plasmacytosis', getFindingSeverity('inflammation', 'basal_plasmacytosis'));
+                ucScore += getWeight('inflammation', 'mucosal_only', getFindingSeverity('inflammation', 'mucosal_only'));
+
+                cdScore += getWeight('inflammation', 'transmural', getFindingSeverity('inflammation', 'transmural'));
+                cdScore += getWeight('inflammation', 'fissuring_ulcers', getFindingSeverity('inflammation', 'fissuring_ulcers'));
+
+                if (getFindingSeverity('architectural', 'glandular_distortion') !== 'assente') 
+                    supportive.push('Distorsione ghiandolare');
+                if (getFindingSeverity('inflammation', 'transmural') !== 'assente') 
+                    supportive.push('Infiammazione transmurale');
+
+                if (ucScore === 0 && cdScore === 0) {
+                    return {
+                        primary: 'MUCOSA NEI LIMITI DELLA NORMA',
+                        confidence: 0,
+                        level: 'NEGATIVO',
+                        color: 'bg-gray-100 border-gray-400',
+                        supportive: [],
+                        recommendations: ['Nessun reperto diagnostico significativo']
+                    };
+                }
+
+                if (cdScore > ucScore && cdScore >= 6) {
+                    return {
+                        primary: hasCD ? 'COMPATIBILE CON MALATTIA DI CROHN' : 'PROBABILE MORBO DI CROHN (CD)',
+                        confidence: hasCD ? 90 : 70,
+                        level: 'PROBABILE',
+                        color: 'bg-red-100 border-red-300',
+                        supportive,
+                        recommendations: ['Confermare con clinica ed endoscopia']
+                    };
+                }
+
+                if (ucScore >= 5) {
+                    return {
+                        primary: hasUC ? 'COMPATIBILE CON RCU' : 'PROBABILE COLITE ULCEROSA (UC)',
+                        confidence: hasUC ? 88 : 68,
+                        level: 'PROBABILE',
+                        color: 'bg-blue-100 border-blue-300',
+                        supportive,
+                        recommendations: ['Confermare distribuzione continua dal retto']
+                    };
+                }
+
+                return {
+                    primary: 'COLITE INDETERMINATA',
+                    confidence: 40,
+                    level: 'INSUFFICIENTE',
+                    color: 'bg-yellow-100 border-yellow-300',
+                    supportive,
+                    recommendations: ['Campionamento multiplo', 'Follow-up']
+                };
+            };
+
+            const diagnosis = useMemo(() => {
+                if (activeTab !== 'diagnosis') return null;
+                return calculateDiagnosis();
+            }, [activeTab, patientData, findings, cd3Count]);
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+                    <div className="max-w-6xl mx-auto">
+                        {/* Header */}
+                        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <Microscope />
+                                    <div>
+                                        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">IBD Diagnostic Tool - Ultimate</h1>
+                                        <p className="text-xs md:text-sm text-gray-600">Algoritmo diagnostico unificato per malattie infiammatorie croniche intestinali</p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-start md:items-end gap-2">
+                                    <span className="text-xs text-green-600 flex items-center gap-1">
+                                        <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span>
+                                        Salvataggio automatico
+                                    </span>
+                                    <button
+                                        onClick={() => {
+                                            if (confirm('Cancellare tutti i dati?')) {
+                                                setPatientData({ age: '', gender: '', clinicalHistory: '' });
+                                                setFindings({});
+                                                setCd3Count('');
+                                                localStorage.removeItem('ibdAppData');
+                                            }
+                                        }}
+                                        className="text-xs text-red-600 hover:text-red-800 underline"
+                                    >
+                                        Reset dati
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="bg-white rounded-lg shadow-lg mb-6">
+                            <div className="flex flex-col sm:flex-row border-b">
+                                {[
+                                    { id: 'clinical', label: 'Dati Clinici', icon: <User /> },
+                                    { id: 'findings', label: 'Reperti', icon: <Microscope /> },
+                                    { id: 'diagnosis', label: 'Diagnosi', icon: <FileText /> }
+                                ].map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold ${
+                                            activeTab === tab.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'
+                                        }`}
+                                    >
+                                        {tab.icon}
+                                        <span className="text-sm sm:text-base">{tab.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="p-6">
+                                {/* TAB: Dati Clinici */}
+                                {activeTab === 'clinical' && (
+                                    <div className="space-y-6">
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                            <p className="text-sm text-blue-800">
+                                                <strong>Info:</strong> I dati clinici influenzano l'interpretazione diagnostica.
+                                            </p>
+                                        </div>
+
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block font-semibold mb-2">Età</label>
+                                                <input
+                                                    type="number"
+                                                    value={patientData.age}
+                                                    onChange={(e) => setPatientData({...patientData, age: e.target.value})}
+                                                    placeholder="Es. 45"
+                                                    className="w-full px-4 py-2 border rounded-lg"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block font-semibold mb-2">Sesso</label>
+                                                <select
+                                                    value={patientData.gender}
+                                                    onChange={(e) => setPatientData({...patientData, gender: e.target.value})}
+                                                    className="w-full px-4 py-2 border rounded-lg"
+                                                >
+                                                    <option value="">Seleziona...</option>
+                                                    <option value="M">Maschio</option>
+                                                    <option value="F">Femmina</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block font-semibold mb-2">Storia Clinica</label>
+                                            <textarea
+                                                value={patientData.clinicalHistory}
+                                                onChange={(e) => setPatientData({...patientData, clinicalHistory: e.target.value})}
+                                                placeholder="Es. Controllo in pregressa RCU diagnosticata 5 anni fa..."
+                                                className="w-full px-4 py-3 border rounded-lg h-32"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* TAB: Reperti */}
+                                {activeTab === 'findings' && (
+                                    <div className="space-y-6">
+                                        {Object.entries(findingsDatabase).map(([category, data]) => (
+                                            <div key={category} className={`border-2 ${data.color} rounded-lg p-4`}>
+                                                <h3 className="text-xl font-bold mb-4">{data.title}</h3>
+                                                <div className="space-y-3">
+                                                    {Object.entries(data.items).map(([key, item]) => {
+                                                        const severity = getFindingSeverity(category, key);
+                                                        const isCD3 = category === 'specific' && key === 'cd3_elevated';
+                                                        const cd3Positive = isCD3 && cd3Count && parseInt(cd3Count) > 20;
+
+                                                        return (
+                                                            <div key={key} className="bg-white rounded-lg border-2 p-4">
+                                                                <div className="flex items-start gap-2 mb-3 flex-wrap">
+                                                                    <span className="font-bold text-base flex-1">{item.name}</span>
+                                                                    {item.pathognomonic && (
+                                                                        <span className="text-xs bg-red-600 text-white px-2 py-1 rounded font-bold">
+                                                                            PATOGNOMONICO
+                                                                        </span>
+                                                                    )}
+                                                                    {item.urgent && (
+                                                                        <span className="text-xs bg-orange-600 text-white px-2 py-1 rounded font-bold">
+                                                                            URGENTE
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                <p className="text-sm text-gray-600 mb-3">{item.desc}</p>
+                                                                {item.note && (
+                                                                    <p className="text-xs text-gray-500 italic mb-3 bg-gray-50 p-2 rounded">{item.note}</p>
+                                                                )}
+                                                                
+                                                                {isCD3 ? (
+                                                                    <div className="space-y-3 pt-3 border-t">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <label className="text-sm font-semibold">Conteggio:</label>
+                                                                            <input
+                                                                                type="number"
+                                                                                value={cd3Count}
+                                                                                onChange={(e) => setCd3Count(e.target.value)}
+                                                                                placeholder="Es. 25"
+                                                                                min="0"
+                                                                                max="100"
+                                                                                className="flex-1 px-4 py-2 border-2 rounded-lg"
+                                                                            />
+                                                                            <span className="text-sm">/100 cellule</span>
+                                                                        </div>
+                                                                        
+                                                                        {cd3Count && (
+                                                                            <div className={`px-4 py-3 rounded-lg font-bold text-center ${
+                                                                                cd3Positive 
+                                                                                    ? 'bg-red-100 border-2 border-red-400 text-red-800' 
+                                                                                    : 'bg-green-100 border-2 border-green-400 text-green-800'
+                                                                            }`}>
+                                                                                {cd3Positive 
+                                                                                    ? `✓ POSITIVO (${cd3Count}/100 > 20)` 
+                                                                                    : `✗ NEGATIVO (${cd3Count}/100 ≤ 20)`
+                                                                                }
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-3 pt-3 border-t">
+                                                                        <span className="text-sm font-semibold">Severità:</span>
+                                                                        <select
+                                                                            value={severity}
+                                                                            onChange={(e) => updateFinding(category, key, e.target.value)}
+                                                                            className="flex-1 px-3 py-2 border-2 rounded-lg"
+                                                                        >
+                                                                            <option value="assente">Assente</option>
+                                                                            <option value="lieve">Lieve</option>
+                                                                            <option value="moderata">Moderata</option>
+                                                                            <option value="severa">Severa</option>
+                                                                        </select>
+                                                                        <div className={`px-4 py-2 text-xs font-bold rounded-lg ${
+                                                                            severity === 'assente' ? 'bg-gray-200' :
+                                                                            severity === 'lieve' ? 'bg-green-200' :
+                                                                            severity === 'moderata' ? 'bg-yellow-200' :
+                                                                            'bg-red-200'
+                                                                        }`}>
+                                                                            {severity.toUpperCase()}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* TAB: Diagnosi */}
+                                {activeTab === 'diagnosis' && diagnosis && (
+                                    <div className="space-y-6">
+                                        <div className={`border-2 ${diagnosis.color} rounded-lg p-6`}>
+                                            <div className="flex items-start gap-4">
+                                                {diagnosis.confidence >= 80 ? <CheckCircle /> : <AlertTriangle />}
+                                                <div className="flex-1">
+                                                    <h2 className="text-2xl font-bold mb-2">{diagnosis.primary}</h2>
+                                                    <div className="flex items-center gap-4 mb-3">
+                                                        <span className="text-3xl font-bold">{diagnosis.confidence}%</span>
+                                                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                                            diagnosis.confidence >= 80 ? 'bg-green-200' : 'bg-yellow-200'
+                                                        }`}>
+                                                            {diagnosis.level}
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-200 rounded-full h-3">
+                                                        <div
+                                                            className={`h-3 rounded-full ${
+                                                                diagnosis.confidence >= 80 ? 'bg-green-600' : 'bg-yellow-600'
+                                                            }`}
+                                                            style={{ width: `${diagnosis.confidence}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {diagnosis.supportive.length > 0 && (
+                                            <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                                                <h3 className="font-bold text-lg mb-2">✓ Reperti Supportivi:</h3>
+                                                <ul className="space-y-1">
+                                                    {diagnosis.supportive.map((item, idx) => (
+                                                        <li key={idx} className="flex gap-2 text-sm">
+                                                            <span>•</span>
+                                                            <span>{item}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {diagnosis.recommendations.length > 0 && (
+                                            <div className="bg-purple-50 border-2 border-purple-300 rounded-lg p-4">
+                                                <h3 className="font-bold text-lg mb-2">ℹ Raccomandazioni:</h3>
+                                                <ul className="space-y-1">
+                                                    {diagnosis.recommendations.map((item, idx) => (
+                                                        <li key={idx} className="flex gap-2 text-sm">
+                                                            <span>→</span>
+                                                            <span>{item}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+                                            <p className="text-sm">
+                                                <strong>Disclaimer:</strong> Questo strumento è un supporto decisionale. La diagnosi definitiva richiede correlazione clinica.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="text-center text-xs text-gray-600 space-y-1">
+                            <p className="font-semibold">IBD Diagnostic Tool Ultimate v3.0</p>
+                            <p>Basato su: ECCO Guidelines | WHO Classification 5th Ed</p>
+                            <p className="text-green-600">✓ Dati salvati nel browser</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<IBDDiagnosticTool />, document.getElementById('root'));
+    </script>
+</body>
+</html>
