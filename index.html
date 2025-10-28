@@ -120,6 +120,10 @@
                             name: "Plasmacitosi basale",
                             desc: "Accumulo plasmacellule alla base delle cripte"
                         },
+                        acute_inflammation: {
+                            name: "Infiltrato flogistico acuto (granulocitario)",
+                            desc: "Granulociti neutrofili nella lamina propria"
+                        },
                         cryptitis: {
                             name: "Criptite",
                             desc: "Neutrofili nell'epitelio delle cripte"
@@ -242,7 +246,7 @@
                             const finding = findingsDatabase[category]?.items[findingKey];
                             if (finding) {
                                 if (category === 'architectural') hasChronicChanges = true;
-                                if (category === 'inflammation' && (findingKey.includes('crypt') || findingKey === 'cryptitis')) hasActivity = true;
+                                if (category === 'inflammation' && (findingKey.includes('crypt') || findingKey === 'cryptitis' || findingKey === 'acute_inflammation')) hasActivity = true;
                                 if (findingKey === 'granulomas') hasGranulomas = true;
                             }
                         });
@@ -264,6 +268,9 @@
                                 chronicDetails.push('plasmacitosi basale');
                             }
                             
+                            if (allFindings['inflammation_acute_inflammation'] !== 'assente') {
+                                activityDetails.push('infiltrato granulocitario');
+                            }
                             if (allFindings['inflammation_cryptitis'] !== 'assente') {
                                 activityDetails.push('criptite');
                             }
