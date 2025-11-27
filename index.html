@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v2.2 - Nancy Index Integrato</title>
+    <title>IBD Diagnostic Tool v2.2.1 - Nancy Index 0-4 Corretto</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -35,7 +35,6 @@
             background: #000;
             z-index: 10;
         }
-        /* ✅ FIX 7: CSS Tooltip Bibliografia */
         .tooltip {
             position: relative;
             display: inline-block;
@@ -110,12 +109,11 @@
                 { id: 1, label: 'A', site: 'cieco', findings: {} }
             ]);
             
-            // ✅ FIX 4 & 5: IHC con pattern qualitativi
             const [ihcData, setIhcData] = useState({
                 cd3: '',
-                cd68_pattern: 'negativo',  // ✅ Qualitativo
+                cd68_pattern: 'negativo',
                 cmv: 'assente',
-                p53_pattern: 'wild_type',  // ✅ Pattern WHO 2019
+                p53_pattern: 'wild_type',
                 cd20: 'assente',
                 cd138: 'assente'
             });
@@ -132,13 +130,12 @@
                 { value: 'retto', label: 'Retto' }
             ];
 
-            // ✅ FIX 1: VALIDAZIONE IHC CORRETTA
             const validateIHC = (marker, value) => {
                 const ranges = {
                     cd3: { 
                         min: 0, 
-                        max: 100,  // ✅ CORRETTO da 500
-                        unit: 'IEL/100 epiteliali',  // ✅ CORRETTO da '/100 cellule'
+                        max: 100,
+                        unit: 'IEL/100 epiteliali',
                         warn_low: 20,
                         warn_high: 50,
                         reference: 'Mahadeva 2002 (PMID: 12121233), Chang 2005 (PMID: 16327441)'
@@ -181,7 +178,7 @@
             };
 
             useEffect(() => {
-                const savedData = localStorage.getItem('ibdAppDataV22');  // ✅ Nuova key
+                const savedData = localStorage.getItem('ibdAppDataV221');
                 if (savedData) {
                     try {
                         const parsed = JSON.parse(savedData);
@@ -196,7 +193,7 @@
 
             useEffect(() => {
                 const dataToSave = { patientData, specimens, ihcData, lastUpdated: new Date().toISOString() };
-                localStorage.setItem('ibdAppDataV22', JSON.stringify(dataToSave));  // ✅ Nuova key
+                localStorage.setItem('ibdAppDataV221', JSON.stringify(dataToSave));
             }, [patientData, specimens, ihcData]);
 
             useEffect(() => {
@@ -205,7 +202,6 @@
                 }
             }, [activeTab, specimens, ihcData]);
 
-            // ✅ FIX 7: Component Tooltip Bibliografia con Link PubMed
             const ReferenceTooltip = ({ reference }) => {
                 if (!reference) return null;
                 return (
@@ -235,7 +231,6 @@
                 );
             };
 
-            // ✅ FIX 3 & 7: FINDINGS DATABASE CON BIBLIOGRAFIA
             const findingsDatabase = {
                 architectural: {
                     title: "Alterazioni Architetturali (Cronicità)",
@@ -310,11 +305,11 @@
                             ucScore: 20,
                             reference: { main: "Geboes K et al. Gut 2000;47:404-9", pmid: "10940279" }
                         },
-                        transmural_deep: {  // ✅ FIX 3: RINOMINATO
+                        transmural_deep: {
                             name: "Infiammazione profonda estesa alla muscolaris mucosae",
                             desc: "Infiltrato che raggiunge/supera la muscolaris mucosae (su biopsie profonde o resezioni)",
-                            crohnScore: 35,  // ✅ RIDOTTO da 50
-                            ucScore: 5,  // ✅ Rimane invariato
+                            crohnScore: 35,
+                            ucScore: 5,
                             reference: { main: "WHO Classification 5th Ed 2019" },
                             warning: "⚠️ Transmuralità vera visibile solo su resezioni chirurgiche"
                         },
@@ -390,8 +385,9 @@
             };
 
             // ========================================
-            // NANCY HISTOLOGICAL INDEX (v2.2)
+            // NANCY HISTOLOGICAL INDEX v2.2.1 (CORRETTO)
             // Riferimento: Marchal-Bressenot A et al. Gut 2017;66:43-9 (PMID: 26464414)
+            // Score 0-4 ORIGINALE
             // ========================================
             
             const getMaxSeverity = (severities) => {
@@ -404,43 +400,74 @@
                 return order[maxIndex];
             };
 
-            const calculateNancyIndex = () => {
-                // Aggrega findings da tutti i campioni
-                let allFindings = {};
+            // ✅ FIX: Aggregazione worst-case tra tutti i campioni
+            const aggregateFindings = () => {
+                const severityOrder = ['assente', 'lieve', 'moderata', 'severa'];
+                let aggregated = {};
+                
                 specimens.forEach(spec => {
-                    Object.assign(allFindings, spec.findings);
+                    Object.entries(spec.findings).forEach(([key, severity]) => {
+                        const currentIdx = severityOrder.indexOf(aggregated[key] || 'assente');
+                        const newIdx = severityOrder.indexOf(severity);
+                        if (newIdx > currentIdx) {
+                            aggregated[key] = severity;
+                        }
+                    });
                 });
+                return aggregated;
+            };
+
+            const calculateNancyIndex = () => {
+                // ✅ FIX: Usa aggregazione worst-case
+                const allFindings = aggregateFindings();
                 
                 // Parametri Nancy
-                const hasUlceration = allFindings['inflammation_fissuring_ulcers'] !== 'assente';
+                const hasUlceration = allFindings['inflammation_fissuring_ulcers'] && 
+                                      allFindings['inflammation_fissuring_ulcers'] !== 'assente';
                 
-                const neutrophilSeverity = getMaxSeverity([
-                    allFindings['inflammation_cryptitis'] || 'assente',
-                    allFindings['inflammation_crypt_abscesses'] || 'assente',
-                    allFindings['inflammation_acute_inflammation'] || 'assente'
-                ]);
+                const cryptitisSeverity = allFindings['inflammation_cryptitis'] || 'assente';
+                const abscessSeverity = allFindings['inflammation_crypt_abscesses'] || 'assente';
+                const acuteSeverity = allFindings['inflammation_acute_inflammation'] || 'assente';
+                
+                const neutrophilSeverity = getMaxSeverity([cryptitisSeverity, abscessSeverity, acuteSeverity]);
+                
+                const hasAbscesses = abscessSeverity !== 'assente';
                 
                 const hasChronicChanges = 
-                    allFindings['architectural_glandular_distortion'] !== 'assente' ||
-                    allFindings['architectural_glandular_atrophy'] !== 'assente';
+                    (allFindings['architectural_glandular_distortion'] && 
+                     allFindings['architectural_glandular_distortion'] !== 'assente') ||
+                    (allFindings['architectural_glandular_atrophy'] && 
+                     allFindings['architectural_glandular_atrophy'] !== 'assente') ||
+                    (allFindings['architectural_mucin_depletion'] && 
+                     allFindings['architectural_mucin_depletion'] !== 'assente') ||
+                    (allFindings['inflammation_basal_plasmacytosis'] && 
+                     allFindings['inflammation_basal_plasmacytosis'] !== 'assente');
                 
-                // Calcolo score 0-3 secondo Nancy Index
+                // ✅ Calcolo score 0-4 secondo Nancy Index ORIGINALE
                 let nancyScore = 0;
                 
-                if (hasUlceration || neutrophilSeverity === 'severa') {
-                    nancyScore = 3; // Attività severa
-                } else if (neutrophilSeverity === 'moderata' || neutrophilSeverity === 'lieve') {
-                    nancyScore = 2; // Attività moderata
-                } else if (hasChronicChanges && neutrophilSeverity === 'assente') {
-                    nancyScore = 1; // Remissione con alterazioni
+                if (hasUlceration) {
+                    // Grade 4: Ulcerazione presente (indipendentemente da altri parametri)
+                    nancyScore = 4;
+                } else if (neutrophilSeverity === 'severa' || neutrophilSeverity === 'moderata' || hasAbscesses) {
+                    // Grade 3: Neutrofili moderati/severi O ascessi criptici, senza ulcere
+                    nancyScore = 3;
+                } else if (neutrophilSeverity === 'lieve') {
+                    // Grade 2: Neutrofili lievi (criptite senza ascessi), senza ulcere
+                    nancyScore = 2;
+                } else if (hasChronicChanges) {
+                    // Grade 1: Solo alterazioni croniche, nessun neutrofilo
+                    nancyScore = 1;
                 } else {
-                    nancyScore = 0; // Remissione completa
+                    // Grade 0: Nessuna alterazione istologica significativa
+                    nancyScore = 0;
                 }
                 
                 return {
                     score: nancyScore,
                     hasUlceration,
                     neutrophilSeverity,
+                    hasAbscesses,
                     hasChronicChanges
                 };
             };
@@ -448,34 +475,39 @@
             const getNancyInterpretation = (score) => {
                 const interpretations = {
                     0: {
-                        text: "Remissione istologica completa",
+                        text: "Assenza di malattia istologicamente significativa",
                         color: "green",
-                        clinical: "Basso rischio recidiva (10-15% a 1 anno)",
-                        recommendation: "Monitoraggio clinico routinario"
+                        clinical: "Remissione istologica completa. Rischio recidiva molto basso (5-10% a 1 anno)",
+                        recommendation: "Monitoraggio clinico routinario. Target terapeutico raggiunto."
                     },
                     1: {
-                        text: "Remissione con alterazioni croniche persistenti",
-                        color: "blue",
-                        clinical: "Rischio moderato recidiva (25-30% a 1 anno)",
-                        recommendation: "Considerare mantenimento terapia"
+                        text: "Infiltrato infiammatorio cronico senza attività acuta",
+                        color: "sky",
+                        clinical: "Remissione con sequele croniche. Rischio recidiva basso (15-20% a 1 anno)",
+                        recommendation: "Mantenimento terapia. Considerare de-escalation cauta."
                     },
                     2: {
-                        text: "Attività infiammatoria lieve-moderata",
+                        text: "Attività infiammatoria lieve",
                         color: "yellow",
-                        clinical: "Rischio elevato recidiva (40-50% a 1 anno)",
-                        recommendation: "Valutare step-up terapeutico"
+                        clinical: "Malattia lievemente attiva. Rischio recidiva moderato (25-35% a 1 anno)",
+                        recommendation: "Ottimizzazione terapia di mantenimento."
                     },
                     3: {
-                        text: "Attività infiammatoria severa",
+                        text: "Attività infiammatoria moderata",
+                        color: "orange",
+                        clinical: "Malattia moderatamente attiva. Rischio recidiva elevato (40-50% a 1 anno)",
+                        recommendation: "Step-up terapeutico raccomandato."
+                    },
+                    4: {
+                        text: "Attività infiammatoria severa con ulcerazione",
                         color: "red",
-                        clinical: "Rischio molto elevato recidiva (>60% a 1 anno)",
-                        recommendation: "Escalation terapeutica raccomandata"
+                        clinical: "Malattia severamente attiva. Rischio recidiva molto elevato (>60% a 1 anno)",
+                        recommendation: "Escalation terapeutica urgente (biologici, JAK-i, chirurgia)."
                     }
                 };
                 return interpretations[score];
             };
 
-            // ✅ FIX 2 & 6: SCORING CON OVERLAP DETECTION
             const calculateScoring = () => {
                 let scores = {
                     crohn: 0,
@@ -486,7 +518,6 @@
                 let hasGranulomas = false;
                 let hasSevereActivity = false;
 
-                // Scoring dai reperti
                 specimens.forEach(spec => {
                     Object.entries(spec.findings).forEach(([key, severity]) => {
                         if (severity === 'assente') return;
@@ -508,11 +539,9 @@
                             scores.crohn += (finding.crohnScore || 0) * severityMult;
                             scores.uc += (finding.ucScore || 0) * severityMult;
 
-                            // ✅ FIX 2: RIMOSSA PENALITÀ UC
                             if (finding.pathognomonic && findingKey === 'granulomas') {
                                 hasGranulomas = true;
                                 scores.crohn += 150;
-                                // ✅ RIMOSSO: scores.uc -= 50;
                             }
                             
                             if (findingKey === 'crypt_abscesses' && severity === 'severa') {
@@ -522,7 +551,6 @@
                     });
                 });
 
-                // Scoring da IHC
                 const cd3 = parseFloat(ihcData.cd3);
                 if (!isNaN(cd3) && cd3 >= 20) {
                     scores.crohn += 15;
@@ -533,13 +561,11 @@
                     scores.uc += 5;
                 }
 
-                // ✅ FIX 5: p53 pattern recognition
                 if (ihcData.p53_pattern === 'overexpression' || ihcData.p53_pattern === 'null') {
                     scores.crohn += 30;
                     scores.uc += 35;
                 }
 
-                // Normalizzazione
                 const total = Math.max(scores.crohn, scores.uc);
                 
                 let result = {};
@@ -549,7 +575,6 @@
                     result.crohn = Math.min(100, Math.round((scores.crohn / total) * 100));
                     result.uc = Math.min(100, Math.round((scores.uc / total) * 100));
                     
-                    // ✅ FIX 6: GESTIONE CONFLITTI OVERLAP
                     if (result.crohn > 40 && result.uc > 40 && Math.abs(result.crohn - result.uc) < 20) {
                         result.ibdu = Math.max(result.ibdu, 65);
                         result.conflictWarning = "⚠️ Pattern sovrapposto (Crohn + UC features). Considerare IBD-Unclassified con overlap.";
@@ -587,7 +612,7 @@
                     diagnoses: [],
                     comment: '',
                     scoring: calculateScoring(),
-                    nancyIndex: calculateNancyIndex()  // ✅ v2.2: Nancy Index integrato
+                    nancyIndex: calculateNancyIndex()
                 };
 
                 Object.entries(groupedSpecimens).forEach(([site, specs]) => {
@@ -621,7 +646,7 @@
                                 if (category === 'architectural') hasChronicChanges = true;
                                 if (category === 'inflammation' && (findingKey.includes('crypt') || findingKey === 'cryptitis' || findingKey === 'acute_inflammation')) hasActivity = true;
                                 if (findingKey === 'granulomas') hasGranulomas = true;
-                                if (findingKey === 'transmural_deep') hasTransmural = true;  // ✅ Nome aggiornato
+                                if (findingKey === 'transmural_deep') hasTransmural = true;
                             }
                         });
 
@@ -695,7 +720,6 @@
 
                 return (
                     <div className="space-y-4">
-                        {/* ✅ WARNING OVERLAP */}
                         {conflictWarning && (
                             <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 mb-4">
                                 <div className="flex items-start gap-2">
@@ -752,30 +776,44 @@
             };
 
             // ========================================
-            // NANCY INDEX DISPLAY COMPONENT (v2.2)
+            // NANCY INDEX DISPLAY COMPONENT (v2.2.1 - Score 0-4)
             // ========================================
-            const NancyIndexDisplay = ({ nancyData }) => {
+            const NancyIndexDisplay = ({ nancyData, scoringData }) => {
                 if (!nancyData) return null;
                 
-                const { score, hasUlceration, neutrophilSeverity, hasChronicChanges } = nancyData;
+                // ✅ Mostra warning se Crohn-dominant
+                const isCrohnDominant = scoringData && scoringData.crohn > scoringData.uc;
+                
+                const { score, hasUlceration, neutrophilSeverity, hasAbscesses, hasChronicChanges } = nancyData;
                 const interpretation = getNancyInterpretation(score);
                 
                 const colorClasses = {
                     green: "bg-green-50 border-green-400 text-green-900",
-                    blue: "bg-blue-50 border-blue-400 text-blue-900",
+                    sky: "bg-sky-50 border-sky-400 text-sky-900",
                     yellow: "bg-yellow-50 border-yellow-400 text-yellow-900",
+                    orange: "bg-orange-50 border-orange-400 text-orange-900",
                     red: "bg-red-50 border-red-400 text-red-900"
                 };
                 
                 const badgeColors = {
                     green: "bg-green-600",
-                    blue: "bg-blue-600",
-                    yellow: "bg-yellow-600",
+                    sky: "bg-sky-600",
+                    yellow: "bg-yellow-500",
+                    orange: "bg-orange-500",
                     red: "bg-red-600"
                 };
                 
                 return (
                     <div className={`border-2 rounded-lg p-5 ${colorClasses[interpretation.color]} mb-6 mt-6`}>
+                        {/* Warning se Crohn-dominant */}
+                        {isCrohnDominant && (
+                            <div className="bg-amber-100 border border-amber-400 rounded p-3 mb-4 text-sm text-amber-800">
+                                <strong>⚠️ Nota:</strong> Il Nancy Index è validato per UC. 
+                                Lo scoring diagnostico suggerisce pattern Crohn-dominant. 
+                                Interpretare con cautela.
+                            </div>
+                        )}
+                        
                         <div className="flex items-start justify-between mb-4">
                             <div className="flex-1">
                                 <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
@@ -783,10 +821,10 @@
                                     <ReferenceTooltip reference={{ 
                                         main: "Marchal-Bressenot A et al. Gut 2017;66:43-9", 
                                         pmid: "26464414",
-                                        note: "Sistema validato per scoring attività istologica UC. Correla con outcome clinico e rischio recidiva."
+                                        note: "Score 0-4 originale. Sistema validato per attività istologica UC."
                                     }} />
                                 </h4>
-                                <p className="text-sm opacity-75">Scoring attività UC (0-3)</p>
+                                <p className="text-sm opacity-75">Scoring attività UC (0-4)</p>
                             </div>
                             <div className={`${badgeColors[interpretation.color]} text-white text-4xl font-bold rounded-full w-20 h-20 flex items-center justify-center shadow-lg`}>
                                 {score}
@@ -807,7 +845,7 @@
                                 </p>
                             </div>
                             
-                            <div className="grid grid-cols-3 gap-3 text-sm mt-3 bg-white bg-opacity-30 rounded p-3">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mt-3 bg-white bg-opacity-30 rounded p-3">
                                 <div>
                                     <span className="font-semibold block mb-1">Ulcerazioni:</span>
                                     <span className={hasUlceration ? "text-red-700 font-bold" : "opacity-75"}>
@@ -818,6 +856,12 @@
                                     <span className="font-semibold block mb-1">Neutrofili:</span>
                                     <span className={neutrophilSeverity !== 'assente' ? "font-bold" : "opacity-75"}>
                                         {neutrophilSeverity === 'assente' ? '✗ Assenti' : `✓ ${neutrophilSeverity.charAt(0).toUpperCase() + neutrophilSeverity.slice(1)}`}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="font-semibold block mb-1">Ascessi criptici:</span>
+                                    <span className={hasAbscesses ? "text-orange-700 font-bold" : "opacity-75"}>
+                                        {hasAbscesses ? '✓ Presenti' : '✗ Assenti'}
                                     </span>
                                 </div>
                                 <div>
@@ -840,8 +884,8 @@
                                 <div className="flex items-center gap-3">
                                     <Microscope />
                                     <div>
-                                        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">IBD Diagnostic Tool v2.2</h1>
-                                        <p className="text-xs md:text-sm text-gray-600">Nancy Index + Fix Scientifiche Evidence-Based</p>
+                                        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">IBD Diagnostic Tool v2.2.1</h1>
+                                        <p className="text-xs md:text-sm text-gray-600">Nancy Index 0-4 Corretto + Fix Scientifiche</p>
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-start md:items-end gap-2">
@@ -855,7 +899,7 @@
                                                 setPatientData({ age: '', gender: '', clinicalHistory: '', indication: '' });
                                                 setSpecimens([{ id: 1, label: 'A', site: 'cieco', findings: {} }]);
                                                 setIhcData({ cd3: '', cd68_pattern: 'negativo', cmv: 'assente', p53_pattern: 'wild_type', cd20: 'assente', cd138: 'assente' });
-                                                localStorage.removeItem('ibdAppDataV22');
+                                                localStorage.removeItem('ibdAppDataV221');
                                             }
                                         }}
                                         className="text-xs text-red-600 hover:text-red-800 underline"
@@ -1051,7 +1095,7 @@
                                         </div>
 
                                         <div className="grid md:grid-cols-2 gap-6">
-                                            {/* ✅ CD3 FIX 1 */}
+                                            {/* CD3 */}
                                             <div className="border rounded-lg p-4">
                                                 <label className="block font-semibold mb-2">CD3 (IEL/100 epiteliali)</label>
                                                 <input
@@ -1078,7 +1122,7 @@
                                                 )}
                                             </div>
 
-                                            {/* ✅ CD68 FIX 4 - QUALITATIVO */}
+                                            {/* CD68 */}
                                             <div className="border rounded-lg p-4">
                                                 <label className="block font-semibold mb-2">CD68 - Macrofagi (pattern)</label>
                                                 <select
@@ -1113,7 +1157,7 @@
                                                 <p className="text-xs text-gray-600 mt-2">Superinfezione oppurtunistica</p>
                                             </div>
 
-                                            {/* ✅ p53 FIX 5 - PATTERN RECOGNITION */}
+                                            {/* p53 */}
                                             <div className="border rounded-lg p-4">
                                                 <label className="block font-semibold mb-2">p53 - Pattern (WHO 2019)</label>
                                                 <select
@@ -1121,7 +1165,7 @@
                                                     onChange={(e) => updateIHC('p53_pattern', e.target.value)}
                                                     className="w-full px-3 py-2 border rounded-lg mb-2"
                                                 >
-                                                    <option value="wild_type">Wild-type (&lt;5%)</option>
+                                                    <option value="wild_type">Wild-type (&lt;5%)})</option>
                                                     <option value="equivocal">Equivocal (5-60%)</option>
                                                     <option value="overexpression">Overexpression (&gt;60%)</option>
                                                     <option value="null">Null pattern (perdita completa)</option>
@@ -1170,7 +1214,7 @@
                                     </div>
                                 )}
 
-                                {/* TAB REFERTO CON SCORING */}
+                                {/* TAB REFERTO */}
                                 {activeTab === 'diagnosis' && report && (
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center no-print mb-4">
@@ -1196,17 +1240,20 @@
                                             />
                                         </div>
 
-                                        {/* NANCY INDEX SECTION (v2.2) */}
+                                        {/* NANCY INDEX SECTION (v2.2.1 - Score 0-4) */}
                                         {report.nancyIndex && (
                                             <div className="no-print">
-                                                <NancyIndexDisplay nancyData={report.nancyIndex} />
+                                                <NancyIndexDisplay 
+                                                    nancyData={report.nancyIndex} 
+                                                    scoringData={report.scoring}
+                                                />
                                             </div>
                                         )}
 
                                         <div className="print-only mb-6">
                                             <div className="border-b-2 pb-4 mb-4">
                                                 <h1 className="text-2xl font-bold">U.O. ANATOMIA PATOLOGICA</h1>
-                                                <p className="text-sm text-gray-600">Referto Istologico - IBD Diagnostic Tool v2.2</p>
+                                                <p className="text-sm text-gray-600">Referto Istologico - IBD Diagnostic Tool v2.2.1</p>
                                             </div>
                                             {patientData.age && (
                                                 <p><strong>Età:</strong> {patientData.age} anni</p>
@@ -1247,8 +1294,9 @@
                                                 <h3 className="text-lg font-bold mb-3 text-indigo-800">COMMENTO:</h3>
                                                 <div className="bg-yellow-50 p-4 rounded border-l-4 border-yellow-600">
                                                     <p className="text-gray-800">
-                                                        Quadro istologico analizzato con sistema di scoring ponderato v2.2 con fix scientifiche validate. 
+                                                        Quadro istologico analizzato con sistema di scoring ponderato v2.2.1 (Nancy Index 0-4 corretto). 
                                                         Confidenza diagnostica: Crohn {report.scoring.crohn}%, UC {report.scoring.uc}%, IBD-U {report.scoring.ibdu}%.
+                                                        {report.nancyIndex && ` Nancy Index: ${report.nancyIndex.score}/4.`}
                                                         {report.scoring.conflictWarning && ` ${report.scoring.conflictWarning}`}
                                                     </p>
                                                 </div>
@@ -1257,9 +1305,9 @@
 
                                         <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 no-print">
                                             <p className="text-sm">
-                                                <strong>Disclaimer:</strong> Questo referto è generato automaticamente dal sistema di scoring v2.2 con fix scientifiche validate. 
+                                                <strong>Disclaimer:</strong> Questo referto è generato automaticamente dal sistema di scoring v2.2.1 con Nancy Index 0-4 originale (Marchal-Bressenot 2017). 
                                                 La diagnosi definitiva richiede sempre correlazione clinica, endoscopica e sierologica. 
-                                                Validare sempre i range IHC secondo gli standard locali del laboratorio.
+                                                Il Nancy Index è validato per UC; interpretare con cautela se pattern Crohn-dominant.
                                             </p>
                                         </div>
                                     </div>
@@ -1268,9 +1316,9 @@
                         </div>
 
                         <div className="text-center text-xs text-gray-600 space-y-1 no-print">
-                            <p className="font-semibold">IBD Diagnostic Tool v2.2 - Fix Scientifiche + Bibliografia Evidence-Based</p>
-                            <p>Basato su: Mahadeva 2002 | Chang 2005 | Geboes 2000 | Voltaggio 2016 | WHO 5th Ed 2019 | ECCO Guidelines</p>
-                            <p className="text-green-600">✓ Nancy Index integrato | ✓ CD3 range corretto (0-100) | ✓ Overlap detection | ✓ p53 pattern recognition | ✓ Bibliografia integrata</p>
+                            <p className="font-semibold">IBD Diagnostic Tool v2.2.1 - Nancy Index 0-4 Corretto</p>
+                            <p>Basato su: Marchal-Bressenot 2017 | Mahadeva 2002 | Chang 2005 | Geboes 2000 | WHO 5th Ed 2019</p>
+                            <p className="text-green-600">✓ Nancy 0-4 originale | ✓ Aggregazione worst-case | ✓ Warning Crohn-dominant | ✓ Bibliografia integrata</p>
                         </div>
                     </div>
                 </div>
