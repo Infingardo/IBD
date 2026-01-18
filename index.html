@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v2.4.0 Production</title>
+    <title>IBD Diagnostic Tool v2.4.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
@@ -109,10 +109,10 @@
                 IBD Diagnostic Tool
             </h1>
             <p class="text-sm text-gray-600">
-                Versione 2.4.0 Production | Supporto diagnosi differenziale Inflammatory Bowel Disease
+                Versione 2.4.1 | Supporto diagnosi differenziale Inflammatory Bowel Disease
             </p>
             <p class="text-xs text-gray-500 mt-1">
-                NOVITÀ v2.4: Criteri ILEO dedicati, Nancy solo per colon, UI dinamica, eliminati reperti transmurali
+                v2.4: Criteri ILEO dedicati, Nancy solo colon | v2.4.1: CMV status
             </p>
         </div>
 
@@ -138,18 +138,19 @@
 
     <script>
         // ==================== CONFIGURAZIONE ====================
-        const APP_VERSION = '2.4.0';
-        const STORAGE_KEY = 'ibdAppDataV240';
+        const APP_VERSION = '2.4.1';
+        const STORAGE_KEY = 'ibdAppDataV241';
         const DISCLAIMER_KEY = 'ibdDisclaimerAccepted';
 
         // ==================== STATE ====================
         let specimens = [];
         let ihcData = {
-            cd68_pattern: 'assente',
-            p53_pattern: 'non_eseguito'
+            cd68_pattern: 'non_eseguito',
+            p53_pattern: 'non_eseguito',
+            cmv_status: 'non_eseguito'  // v2.4.1: CMV
         };
         let activeTab = 'campioni';
-        let currentSite = 'ileo'; // v2.4.0: traccia sede selezionata nel form
+        let currentSite = 'ileo';
 
         // v2.4.0: Update form quando cambia sede
         const updateFormSite = (newSite) => {
@@ -172,8 +173,6 @@
 
         // ==================== HELPER FUNCTIONS ====================
         const shouldShowNancy = () => {
-            // v2.4.0: Nancy Index validato SOLO per colon UC
-            // Disabilita se c'è almeno 1 campione ileale
             const hasIleum = specimens.some(s => s.siteType === 'ileum');
             if (hasIleum) return false;
 
@@ -197,7 +196,6 @@
             let hasCryptAbscesses = false;
             let neutrophilSeverity = 'assente';
 
-            // v2.4.0: Processa SOLO campioni colon (skip ileo)
             const colonSpecimens = specimens.filter(s => s.siteType !== 'ileum');
 
             colonSpecimens.forEach(specimen => {
@@ -354,26 +352,22 @@
 
             specimens.forEach(specimen => {
                 const f = specimen.findings;
-                const siteType = specimen.siteType || 'colon'; // Default colon per backward compatibility
+                const siteType = specimen.siteType || 'colon';
 
                 // ==================== SCORING ILEO ====================
                 if (siteType === 'ileum') {
-                    // Granulomi (peso maggiorato per ileo)
                     if (f.granulomi_epitelioidi === 'presente') {
                         scores.crohn += 150;
                     }
 
-                    // Erosioni/ulcerazioni aftose (tipiche Crohn)
                     if (f.erosioni_ulcerazioni === 'presente') {
                         scores.crohn += 50;
                     }
 
-                    // Iperplasia linfoide (Crohn ileale)
                     if (f.iperplasia_linfoide === 'presente') {
                         scores.crohn += 40;
                     }
 
-                    // Atrofia villi (cronicità)
                     if (f.atrofia_villi === 'marcata') {
                         scores.crohn += 30;
                     } else if (f.atrofia_villi === 'moderata') {
@@ -382,10 +376,9 @@
                         scores.crohn += 5;
                     }
 
-                    // Neutrofili lamina propria (attività, può essere backwash UC - raro)
                     if (f.neutrofili_lamina_propria === 'marcata') {
                         scores.crohn += 20;
-                        scores.uc += 10; // Backwash ileitis possibile
+                        scores.uc += 10;
                     } else if (f.neutrofili_lamina_propria === 'moderata') {
                         scores.crohn += 10;
                         scores.uc += 5;
@@ -393,17 +386,14 @@
                         scores.crohn += 5;
                     }
 
-                    // Edema lamina propria (attività)
                     if (f.edema_lamina_propria === 'presente') {
                         scores.crohn += 15;
                     }
 
-                    // Plasmacellule aumentate (cronicità)
                     if (f.plasmacellule_aumentate === 'presente') {
                         scores.crohn += 15;
                     }
 
-                    // Fibrosi sottomucosa
                     if (f.fibrosi_sottomucosa === 'marcata') {
                         scores.crohn += 25;
                     } else if (f.fibrosi_sottomucosa === 'moderata') {
@@ -413,13 +403,11 @@
                     }
 
                 } else {
-                    // ==================== SCORING COLON (e pouch/anastomosi) ====================
-                    // Granulomi
+                    // ==================== SCORING COLON ====================
                     if (f.granulomi_epitelioidi === 'presente') {
                         scores.crohn += 100;
                     }
 
-                    // Neutrofili intraepiteliali
                     if (f.neutrofili_epitelio === 'marcata') {
                         scores.uc += 40;
                         scores.crohn += 20;
@@ -431,36 +419,30 @@
                         scores.crohn += 10;
                     }
 
-                    // Ascessi criptici
                     if (f.ascessi_criptici === 'presente') {
                         scores.uc += 30;
                         scores.crohn += 15;
                     }
 
-                    // Plasmacellule basale
                     if (f.plasmacellule_basale === 'presente') {
                         scores.uc += 25;
                         scores.crohn += 10;
                     }
 
-                    // Distorsione architettura
                     if (f.distorsione_architettura === 'presente') {
                         scores.uc += 20;
                         scores.crohn += 15;
                     }
 
-                    // Metaplasia Paneth
                     if (f.metaplasia_paneth === 'presente') {
                         scores.uc += 15;
                     }
 
-                    // Ulcerazione
                     if (f.ulcerazione === 'presente') {
                         scores.crohn += 15;
                         scores.uc += 10;
                     }
 
-                    // Fibrosi sottomucosa
                     if (f.fibrosi_sottomucosa === 'marcata') {
                         scores.crohn += 25;
                         scores.uc += 10;
@@ -483,6 +465,8 @@
             const dysplasiaRisk = 
                 ihcData.p53_pattern === 'overexpression' || 
                 ihcData.p53_pattern === 'null';
+
+            // CMV NON influenza scoring IBD (è complicazione sovrapposta)
 
             // IBDU scoring
             if (scores.crohn < 30 && scores.uc < 30) {
@@ -513,10 +497,8 @@
                 const f = specimen.findings;
                 const siteType = specimen.siteType || 'colon';
 
-                // 1. Granulomi senza alterazioni croniche
                 if (f.granulomi_epitelioidi === 'presente') {
                     if (siteType === 'ileum') {
-                        // ILEO: granulomi senza atrofia villi o plasmacellule aumentate
                         if (f.atrofia_villi === 'assente' && f.plasmacellule_aumentate === 'assente') {
                             warnings.push({
                                 type: 'DIAGNOSTIC_ALERT',
@@ -527,7 +509,6 @@
                             });
                         }
                     } else {
-                        // COLON: granulomi senza distorsione o plasmacellule basale
                         if (f.distorsione_architettura === 'assente' && f.plasmacellule_basale === 'assente') {
                             warnings.push({
                                 type: 'DIAGNOSTIC_ALERT',
@@ -541,7 +522,6 @@
                 }
             });
 
-            // 2. p53 aberrante con campionamento limitato
             const dysplasiaRisk = 
                 ihcData.p53_pattern === 'overexpression' || 
                 ihcData.p53_pattern === 'null';
@@ -555,7 +535,6 @@
                 });
             }
 
-            // 3. Nancy Index alto senza ulcerazione
             const nancy = calculateNancyIndex();
             if (nancy.applicable && nancy.score >= 3 && !nancy.details.hasUlceration) {
                 warnings.push({
@@ -566,7 +545,6 @@
                 });
             }
 
-            // 4. Pattern topografico Crohn-like confermato
             const topoPattern = analyzeTopographicPattern();
             if (topoPattern.rectumSampled && !topoPattern.rectumInvolved && 
                 topoPattern.ileumInvolved) {
@@ -588,7 +566,6 @@
             const topoPattern = analyzeTopographicPattern();
             const validations = validateClinicalLogic();
 
-            // FIX v2.3.2: Rilevazione granulomi sospetti per warning
             const suspiciousGranulomas = specimens.filter(s => 
                 s.findings.granulomi_epitelioidi === 'sospetti'
             ).map(s => s.site);
@@ -600,7 +577,6 @@
                 if (s.findings.ascessi_criptici === 'presente') findings.push('ascessi criptici');
                 if (s.findings.distorsione_architettura === 'presente') findings.push('distorsione architettura');
                 if (s.findings.ulcerazione === 'presente') findings.push('ulcerazione');
-                if (s.findings.fissurazioni === 'presente') findings.push('fissurazioni');
 
                 let diagnosis = 'Colite cronica';
                 if (findings.length > 0) diagnosis += ' attiva';
@@ -618,8 +594,8 @@
                 scoring,
                 nancy,
                 topoPattern,
-                suspiciousGranulomas,  // NUOVO
-                validations,  // NUOVO v2.3.5
+                suspiciousGranulomas,
+                validations,
                 ihcData,
                 metadata: {
                     version: APP_VERSION,
@@ -632,7 +608,6 @@
 
         // ==================== COMPONENTS ====================
 
-        // Tab Navigation
         const TabNavigation = ({ active, onChange }) => {
             const tabs = [
                 { id: 'campioni', label: '📋 Campioni' },
@@ -656,16 +631,12 @@
             `;
         };
 
-        // Specimen Form
         const SpecimenForm = () => {
             const sites = [
                 'ileo', 'cieco', 'ascendente', 'trasverso', 
                 'discendente', 'sigma', 'retto', 'pouch', 'anastomosi'
             ];
 
-            // Findings per COLON, POUCH, ANASTOMOSI
-            // NOTA: Pouch (IPAA) e anastomosi post-chirurgiche usano criteri "colon-like"
-            // Razionale: mucosa di tipo colico, anche se in configurazione post-operatoria
             const colonFindings = {
                 granulomi_epitelioidi: ['assente', 'sospetti', 'presente'],
                 neutrofili_epitelio: ['assente', 'lieve', 'moderata', 'marcata'],
@@ -677,7 +648,6 @@
                 fibrosi_sottomucosa: ['assente', 'lieve', 'moderata', 'marcata']
             };
 
-            // Findings per ILEO TERMINALE
             const ileumFindings = {
                 granulomi_epitelioidi: ['assente', 'sospetti', 'presente'],
                 neutrofili_lamina_propria: ['assente', 'lieve', 'moderata', 'marcata'],
@@ -689,7 +659,6 @@
                 fibrosi_sottomucosa: ['assente', 'lieve', 'moderata', 'marcata']
             };
 
-            // Funzione per label leggibili
             const getLabel = (key) => {
                 const labels = {
                     'granulomi_epitelioidi': 'Granulomi Epitelioidi',
@@ -710,7 +679,6 @@
                 return labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             };
 
-            // Rendering findings basato su sede selezionata
             const renderFindings = (site) => {
                 const isIleum = site === 'ileo';
                 const findings = isIleum ? ileumFindings : colonFindings;
@@ -763,7 +731,6 @@
             `;
         };
 
-        // Specimen List
         const SpecimenList = () => {
             if (specimens.length === 0) {
                 return `
@@ -773,7 +740,6 @@
                 `;
             }
 
-            // Helper per label leggibili
             const getLabel = (key) => {
                 const labels = {
                     'granulomi_epitelioidi': 'Granulomi',
@@ -828,13 +794,14 @@
             `;
         };
 
-        // IHC Panel
+        // ==================== IHC PANEL con CMV ====================
         const IHCPanel = () => {
             return `
                 <div class="bg-purple-50 rounded-lg p-6">
                     <h3 class="text-xl font-bold mb-4">Immunoistochimica</h3>
                     
                     <div class="space-y-4">
+                        <!-- CD68 -->
                         <div>
                             <label class="block text-sm font-semibold mb-2">
                                 CD68 Pattern (distribuzione macrofagi):
@@ -844,7 +811,7 @@
                                 onchange="updateIHC('cd68_pattern', this.value)"
                                 class="w-full p-2 border rounded"
                             >
-                                <option value="assente" ${ihcData.cd68_pattern === 'assente' ? 'selected' : ''}>
+                                <option value="non_eseguito" ${ihcData.cd68_pattern === 'non_eseguito' ? 'selected' : ''}>
                                     Non eseguito
                                 </option>
                                 <option value="cluster_transmurale" ${ihcData.cd68_pattern === 'cluster_transmurale' ? 'selected' : ''}>
@@ -859,6 +826,7 @@
                             </p>
                         </div>
 
+                        <!-- p53 -->
                         <div>
                             <label class="block text-sm font-semibold mb-2">
                                 p53 Pattern:
@@ -885,12 +853,100 @@
                                 ⚠️ Pattern aberranti (overexpression/null) = ALTO RISCHIO DISPLASIA
                             </p>
                         </div>
+
+                        <!-- CMV v2.4.1 -->
+                        <div class="border-t pt-4 mt-4">
+                            <label class="block text-sm font-semibold mb-2">
+                                🦠 CMV (Citomegalovirus):
+                            </label>
+                            <select 
+                                id="cmv-status" 
+                                onchange="updateIHC('cmv_status', this.value)"
+                                class="w-full p-2 border rounded"
+                            >
+                                <option value="non_eseguito" ${ihcData.cmv_status === 'non_eseguito' ? 'selected' : ''}>
+                                    Non eseguito
+                                </option>
+                                <option value="negativo" ${ihcData.cmv_status === 'negativo' ? 'selected' : ''}>
+                                    Negativo
+                                </option>
+                                <option value="dubbio" ${ihcData.cmv_status === 'dubbio' ? 'selected' : ''}>
+                                    Dubbio (rare cellule positive / focale)
+                                </option>
+                                <option value="positivo" ${ihcData.cmv_status === 'positivo' ? 'selected' : ''}>
+                                    Positivo (inclusions e/o IHC diffusamente +)
+                                </option>
+                            </select>
+                            <p class="text-xs text-gray-600 mt-1">
+                                Ricercare in IBD refrattaria, UC severa/steroido-resistente, pazienti immunosoppressi
+                            </p>
+                            ${ihcData.cmv_status === 'positivo' || ihcData.cmv_status === 'dubbio' ? `
+                                <div class="mt-2 p-3 bg-red-100 border border-red-400 rounded">
+                                    <p class="text-sm text-red-800 font-semibold">
+                                        ⚠️ ${ihcData.cmv_status === 'positivo' ? 'CMV POSITIVO' : 'CMV DUBBIO'}: 
+                                        Considerare colite da CMV sovrapposta!
+                                    </p>
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
                 </div>
             `;
         };
 
-        // NUOVO v2.3.2: Warning Granulomi Sospetti
+        // ==================== CMV Warning Component ====================
+        const CMVWarningDisplay = ({ cmvStatus }) => {
+            if (cmvStatus === 'non_eseguito' || cmvStatus === 'negativo') return '';
+            
+            const isPositive = cmvStatus === 'positivo';
+            
+            return `
+                <div class="bg-red-50 border-2 ${isPositive ? 'border-red-600' : 'border-orange-500'} rounded-lg p-5 mb-6">
+                    <h4 class="font-bold text-lg ${isPositive ? 'text-red-900' : 'text-orange-900'} mb-3 flex items-center gap-2">
+                        <span class="text-2xl">🦠</span>
+                        <span>${isPositive ? 'CMV POSITIVO' : 'CMV DUBBIO'}</span>
+                    </h4>
+                    
+                    <div class="space-y-3">
+                        <div class="bg-white bg-opacity-60 rounded p-3">
+                            <p class="text-sm ${isPositive ? 'text-red-800' : 'text-orange-800'} font-semibold mb-2">
+                                ${isPositive 
+                                    ? 'Infezione da CMV confermata: considerare colite da CMV sovrapposta a IBD'
+                                    : 'Possibile infezione da CMV: confermare con PCR/viremia e/o livelli più profondi'
+                                }
+                            </p>
+                            <p class="text-sm ${isPositive ? 'text-red-700' : 'text-orange-700'}">
+                                ${isPositive 
+                                    ? 'Valutare terapia antivirale (ganciclovir/valganciclovir) e riduzione/sospensione immunosoppressione.'
+                                    : 'In caso di dubbio con clinica suggestiva, trattare empiricamente o approfondire diagnostica.'
+                                }
+                            </p>
+                        </div>
+                        
+                        <div class="bg-yellow-50 border border-yellow-400 rounded p-3">
+                            <p class="text-xs text-yellow-900 font-semibold mb-1">
+                                📋 Nota clinica:
+                            </p>
+                            <p class="text-xs text-yellow-800">
+                                CMV è frequente in UC refrattaria a steroidi, UC severa/fulminante, e pazienti in terapia 
+                                immunosoppressiva (anti-TNF, azatioprina, ciclosporina). L'infezione da CMV può mimare 
+                                o esacerbare IBD attiva. <strong>Continuare immunosoppressione con CMV attivo può essere pericoloso.</strong>
+                            </p>
+                        </div>
+
+                        <div class="text-xs text-gray-600 space-y-1">
+                            <p><strong>Criteri diagnostici CMV:</strong></p>
+                            <ul class="ml-4 list-disc space-y-1">
+                                <li><strong>Inclusions</strong>: Cellule con inclusioni nucleari "owl's eye" e/o citoplasmatiche</li>
+                                <li><strong>IHC</strong>: Positività per anticorpi anti-CMV (pp65, IE1)</li>
+                                <li><strong>Localizzazione</strong>: Cellule endoteliali, stromali, epiteliali nelle ulcere</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
         const SuspiciousGranulomasWarning = ({ sites }) => {
             if (!sites || sites.length === 0) return '';
             
@@ -930,7 +986,6 @@
             `;
         };
 
-        // Topographic Pattern Display
         const TopographicPatternDisplay = ({ pattern }) => {
             if (!pattern) return '';
             
@@ -998,7 +1053,6 @@
             `;
         };
 
-        // Displasia Risk Display
         const DysplasiaRiskDisplay = ({ scoring, ihcData }) => {
             if (!scoring.dysplasiaRisk) return '';
             
@@ -1051,7 +1105,6 @@
             `;
         };
 
-        // Nancy Index Display
         const NancyIndexDisplay = ({ nancy }) => {
             if (!nancy || !nancy.applicable) return '';
 
@@ -1087,7 +1140,6 @@
             `;
         };
 
-        // NUOVO v2.3.5: Clinical Validation Panel
         const ValidationPanel = ({ warnings }) => {
             if (!warnings || warnings.length === 0) return '';
             
@@ -1127,13 +1179,11 @@
             `;
         };
 
-        // Confidence Bar
         const ConfidenceBar = ({ crohn, uc, ibdu }) => {
             const interpretation = interpretScoring({ crohn, uc, ibdu });
             
             return `
                 <div class="space-y-4">
-                    <!-- Disclaimer GIGANTE -->
                     <div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4">
                         <div class="flex items-start gap-3 mb-3">
                             <span class="text-3xl">⚠️</span>
@@ -1151,7 +1201,6 @@
                         </div>
                     </div>
                     
-                    <!-- Interpretazione Qualitativa -->
                     <div class="bg-green-50 border-2 border-green-400 rounded-lg p-4">
                         <h4 class="font-bold text-green-900 mb-3 flex items-center gap-2">
                             <span class="text-xl">📊</span>
@@ -1168,7 +1217,6 @@
                         </p>
                     </div>
                     
-                    <!-- Percentuali Dettagliate -->
                     <div class="bg-white border border-gray-300 rounded-lg p-4">
                         <h5 class="text-sm font-semibold text-gray-700 mb-3">
                             Scoring % Dettagliato (orientativo)
@@ -1218,7 +1266,6 @@
             `;
         };
 
-        // Report Tab
         const ReportTab = () => {
             if (specimens.length === 0) {
                 return `
@@ -1233,10 +1280,13 @@
 
             return `
                 <div class="space-y-6">
+                    <!-- CMV Warning v2.4.1 -->
+                    ${CMVWarningDisplay({ cmvStatus: report.ihcData.cmv_status })}
+
                     <!-- Warning Granulomi Sospetti -->
                     ${SuspiciousGranulomasWarning({ sites: report.suspiciousGranulomas })}
 
-                    <!-- NUOVO v2.3.5: Clinical Validation -->
+                    <!-- Clinical Validation -->
                     ${ValidationPanel({ warnings: report.validations })}
 
                     <!-- Pattern Topografico -->
@@ -1281,6 +1331,23 @@
                             </table>
                         </div>
 
+                        <!-- CMV Testuale v2.4.1 -->
+                        ${report.ihcData.cmv_status === 'positivo' ? `
+                            <h4 class="font-semibold mt-4 mb-2 text-red-700">🦠 CMV POSITIVO:</h4>
+                            <p class="text-sm mb-2 text-red-800 font-semibold">
+                                Infezione da CMV confermata. Considerare colite da CMV sovrapposta a IBD.
+                            </p>
+                            <p class="text-sm mb-2 text-red-700">
+                                Valutare terapia antivirale (ganciclovir) e riduzione immunosoppressione.
+                            </p>
+                        ` : report.ihcData.cmv_status === 'dubbio' ? `
+                            <h4 class="font-semibold mt-4 mb-2 text-orange-700">🦠 CMV DUBBIO:</h4>
+                            <p class="text-sm mb-2 text-orange-800">
+                                Rare cellule positive per CMV. Confermare con PCR/viremia e/o livelli più profondi.
+                                In caso di clinica suggestiva, considerare trattamento empirico.
+                            </p>
+                        ` : ''}
+
                         <!-- Warning Granulomi Sospetti Testuale -->
                         ${report.suspiciousGranulomas.length > 0 ? `
                             <h4 class="font-semibold mt-4 mb-2 text-orange-700">⚠️ GRANULOMI SOSPETTI:</h4>
@@ -1288,8 +1355,7 @@
                                 Aggregati epitelioidi sospetti in: ${report.suspiciousGranulomas.map(s => s.toUpperCase()).join(', ')}.
                             </p>
                             <p class="text-sm mb-2 text-orange-700">
-                                Interpretazione cauta. Diagnosi differenziali: artefatti, microaggregati reattivi, 
-                                follicolite frammentata. <strong>Non pesati nello scoring</strong> per evitare overdiagnosi. 
+                                Interpretazione cauta. <strong>Non pesati nello scoring</strong>. 
                                 Conferma su biopsia profonda/multipla consigliata.
                             </p>
                         ` : ''}
@@ -1318,8 +1384,7 @@
                                 Pattern p53 aberrante (${report.ihcData.p53_pattern}): ALTO RISCHIO DISPLASIA.
                             </p>
                             <p class="text-sm mb-2 text-red-700">
-                                Valutazione morfologica attenta per LGD/HGD obbligatoria. 
-                                p53 è marker di displasia, NON di tipo di IBD.
+                                Valutazione morfologica attenta per LGD/HGD obbligatoria.
                             </p>
                         ` : ''}
 
@@ -1329,25 +1394,18 @@
                             Pattern morfologico: <strong>${interpretScoring(report.scoring.scores).primary}</strong> 
                             (${interpretScoring(report.scoring.scores).confidence})
                         </p>
-                        ${report.topoPattern.warning ? `
-                            <p class="text-sm mb-2">
-                                Distribuzione topografica: ${report.topoPattern.warning.includes('UC-like') ? 'UC-like' : 
-                                    report.topoPattern.warning.includes('Crohn-like') ? 'Crohn-like' : 'Atipica'}
-                            </p>
-                        ` : ''}
                         ${report.nancy.applicable ? `
                             <p class="text-sm mb-2">
                                 Nancy Histological Index: ${report.nancy.score}/4 (${report.nancy.interpretation.label})
                             </p>
-                        ` : '<p class="text-sm mb-2">Nancy Index: Non applicabile (pattern morfologico Crohn)</p>'}
+                        ` : '<p class="text-sm mb-2">Nancy Index: Non applicabile</p>'}
 
                         <!-- Disclaimer Finale -->
                         <div class="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded">
                             <p class="text-xs text-gray-700">
                                 <strong>NOTA IMPORTANTE:</strong> Lo scoring % è supporto decisionale orientativo, 
                                 NON diagnosi definitiva. La diagnosi richiede integrazione con contesto clinico, 
-                                endoscopia, sierologia e follow-up. Algoritmo basato su letteratura ma senza 
-                                validazione prospettica.
+                                endoscopia, sierologia e follow-up.
                             </p>
                         </div>
                     </div>
@@ -1387,7 +1445,6 @@
             const site = document.getElementById('site-select').value;
             const findings = {};
 
-            // Determina quali findings usare in base alla sede
             const isIleum = (site === 'ileo');
             
             const findingKeys = isIleum ? [
@@ -1428,7 +1485,7 @@
         const clearData = () => {
             if (confirm('Sei sicuro di voler cancellare tutti i dati?')) {
                 specimens = [];
-                ihcData = { cd68_pattern: 'assente', p53_pattern: 'non_eseguito' };
+                ihcData = { cd68_pattern: 'non_eseguito', p53_pattern: 'non_eseguito', cmv_status: 'non_eseguito' };
                 localStorage.removeItem(STORAGE_KEY);
                 render();
             }
@@ -1454,7 +1511,9 @@
                 if (saved) {
                     const data = JSON.parse(saved);
                     specimens = data.specimens || [];
-                    ihcData = data.ihcData || { cd68_pattern: 'assente', p53_pattern: 'non_eseguito' };
+                    ihcData = data.ihcData || { cd68_pattern: 'non_eseguito', p53_pattern: 'non_eseguito', cmv_status: 'non_eseguito' };
+                    // Ensure cmv_status exists for older data
+                    if (!ihcData.cmv_status) ihcData.cmv_status = 'non_eseguito';
                 }
             } catch (error) {
                 console.error('Error loading data:', error);
@@ -1486,7 +1545,7 @@
     <!-- Footer -->
     <div class="max-w-6xl mx-auto mt-8 text-xs text-gray-600 text-center p-4 bg-gray-100 rounded">
         <p class="font-semibold mb-2">
-            IBD Diagnostic Tool v2.4.0 Production - STRUMENTO DI SUPPORTO DIAGNOSTICO
+            IBD Diagnostic Tool v2.4.1 - STRUMENTO DI SUPPORTO DIAGNOSTICO
         </p>
         <p class="mb-1">
             <strong>DISCLAIMER:</strong> Questo tool fornisce supporto orientativo alla diagnosi 
@@ -1498,8 +1557,11 @@
             <strong>contesto clinico, endoscopia, sierologia, follow-up</strong>.
         </p>
         <p class="text-gray-500 text-xs mt-2">
-            Release: Gennaio 2026 | v2.4.0 | 
-            BIOPSIE ENDOSCOPICHE: Ileo dedicato, Nancy solo colon
+            Release: Gennaio 2026 | v2.4.1: +CMV status | 
+            Criteri ileo dedicati, Nancy solo colon
+        </p>
+        <p class="text-gray-500 text-xs mt-2">
+            Contatto: <a href="mailto:filippo.bianchi@asst-fbf-sacco.it" class="text-blue-600 hover:underline">filippo.bianchi@asst-fbf-sacco.it</a>
         </p>
     </div>
 </body>

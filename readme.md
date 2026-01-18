@@ -1,12 +1,12 @@
-# IBD Diagnostic Tool v2.4.0
+# IBD Diagnostic Tool v2.4.1
 
-[![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)](https://github.com/infingardo/IBD)
+[![Version](https://img.shields.io/badge/version-2.4.1-blue.svg)](https://github.com/infingardo/IBD)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 [![Status](https://img.shields.io/badge/status-production-brightgreen.svg)]()
 
 **Sistema di scoring diagnostico evidence-based per IBD (Inflammatory Bowel Disease) - Biopsie Endoscopiche**
 
-🔗 **[Demo Live](https://infingardo.github.io/IBD/)** | 📚 **[Changelog v2.4.0](CHANGELOG_v2.4.0.md)**
+🔗 **[Demo Live](https://infingardo.github.io/IBD/)** | 📚 **[Changelog v2.4.1](CHANGELOG_v2.4.1.md)**
 
 ---
 
@@ -16,13 +16,35 @@ Tool di supporto alla diagnosi differenziale IBD per **biopsie endoscopiche**, c
 - Scoring diagnostico Crohn vs UC vs IBDU
 - **Criteri dedicati per ileo terminale** (novità v2.4.0)
 - Nancy Histological Index per UC (solo colon)
-- IHC support (CD68 pattern, p53)
+- IHC support (CD68 pattern, p53, **CMV status** v2.4.1)
 
 **⚠️ DISCLAIMER**: Strumento di supporto per patologi esperti, NON diagnosi automatica. Scoring % non validato prospetticamente.
 
 ---
 
-## 🆕 Novità v2.4.0 (Gennaio 2026)
+## 🆕 Novità v2.4.1 (Gennaio 2026)
+
+### 🦠 CMV Status
+
+Aggiunto nel pannello IHC per IBD refrattarie/steroido-resistenti:
+
+| Valore | Significato |
+|--------|-------------|
+| Non eseguito | Default |
+| Negativo | Assenza di CMV |
+| Dubbio | Rare cellule positive / focale |
+| Positivo | Inclusions e/o IHC diffusamente + |
+
+**Warning automatico** se CMV positivo/dubbio:
+- Considerare colite da CMV sovrapposta
+- Valutare ganciclovir e riduzione immunosoppressione
+- CMV **non influenza scoring** Crohn/UC (è complicanza sovrapposta)
+
+**Quando cercare CMV**: UC refrattaria a steroidi, UC severa/fulminante, flare durante immunosoppressione.
+
+---
+
+## 🔬 Novità v2.4.0 (Gennaio 2026)
 
 ### 🔬 Criteri ILEO Dedicati
 
@@ -241,6 +263,7 @@ La **diagnosi finale** rimane responsabilità del patologo. Integrare sempre con
 
 ## 📞 Contatti
 
+- **Email**: [filippo.bianchi@asst-fbf-sacco.it](mailto:filippo.bianchi@asst-fbf-sacco.it)
 - **GitHub Issues**: [github.com/infingardo/IBD/issues](https://github.com/infingardo/IBD/issues)
 - **Istituzione**: SC Anatomia Patologica, ASST Fatebenefratelli-Sacco, Milano
 
@@ -254,9 +277,9 @@ MIT License - Vedi [LICENSE.md](LICENSE.md)
 
 <div align="center">
 
-**v2.4.0 Production** | Gennaio 2026
+**v2.4.1 Production** | Gennaio 2026
 
-🔬 Criteri ILEO dedicati • 📋 Nancy solo colon • 🚫 Eliminati transmurali
+🔬 Criteri ILEO dedicati • 📋 Nancy solo colon • 🦠 CMV status • 🚫 Eliminati transmurali
 
 **[Demo Live](https://infingardo.github.io/IBD/)** • **[Changelog](CHANGELOG_v2.4.0.md)** • **[Report Bug](https://github.com/infingardo/IBD/issues)**
 
