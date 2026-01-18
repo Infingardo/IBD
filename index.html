@@ -3,1266 +3,1504 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v2.2.2 - Fix CD68, Nancy condizionale, Disclaimer</title>
-    
+    <title>IBD Diagnostic Tool v2.4.0 Production</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
     <style>
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @media print {
             .no-print { display: none !important; }
-            .print-only { display: block !important; }
+            body { background: white; }
+            .print-break { page-break-after: always; }
         }
-        .print-only { display: none; }
-        .tooltip {
-            position: relative;
-            display: inline-block;
-            cursor: help;
-            vertical-align: middle;
+        .tab-active {
+            background-color: #3b82f6;
+            color: white;
+            border-bottom: 3px solid #1d4ed8;
         }
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 320px;
-            background-color: #1e293b;
-            color: #fff;
-            text-align: left;
-            border-radius: 6px;
-            padding: 10px;
-            position: absolute;
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             z-index: 1000;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -160px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            font-size: 11px;
-            line-height: 1.5;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .tooltip .tooltiptext a {
-            color: #60a5fa;
-            text-decoration: underline;
-            font-weight: 600;
-        }
-        .tooltip .tooltiptext a:hover {
-            color: #93c5fd;
-            text-decoration: none;
-        }
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-        .tooltip-icon {
-            display: inline-block;
-            width: 14px;
-            height: 14px;
-            margin-left: 4px;
+        .modal-content {
+            background: white;
+            max-width: 600px;
+            margin: 20px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-gray-50 p-4">
+    <!-- Modal Disclaimer Iniziale -->
+    <div id="disclaimer-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="bg-red-600 text-white p-6 rounded-t-xl">
+                <h2 class="text-2xl font-bold flex items-center gap-3">
+                    <span class="text-4xl">⚠️</span>
+                    <span>STRUMENTO DI SUPPORTO DIAGNOSTICO</span>
+                </h2>
+            </div>
+            <div class="p-8 space-y-4">
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
+                    <p class="font-bold text-lg mb-2 text-yellow-900">
+                        ATTENZIONE: Questo tool NON sostituisce
+                    </p>
+                    <ul class="list-disc ml-6 space-y-1 text-yellow-800">
+                        <li>Il ragionamento istopatologico del medico</li>
+                        <li>L'integrazione con dati clinici ed endoscopici</li>
+                        <li>L'esperienza diagnostica in IBD</li>
+                        <li>Il giudizio professionale individuale</li>
+                    </ul>
+                </div>
 
-    <script type="text/babel">
-        const { useState, useMemo, useEffect } = React;
-        
-        const Microscope = () => <i data-lucide="microscope"></i>;
-        const FileText = () => <i data-lucide="file-text"></i>;
-        const User = () => <i data-lucide="user"></i>;
-        const MapPin = () => <i data-lucide="map-pin"></i>;
-        const Printer = () => <i data-lucide="printer"></i>;
-        const AlertCircle = () => <i data-lucide="alert-circle"></i>;
-        const CheckCircle = () => <i data-lucide="check-circle"></i>;
-        const Info = () => <i data-lucide="info" className="tooltip-icon"></i>;
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
+                    <p class="font-semibold text-blue-900 mb-2">
+                        Lo scoring percentuale è:
+                    </p>
+                    <ul class="list-disc ml-6 space-y-1 text-blue-800 text-sm">
+                        <li><strong>PURAMENTE ORIENTATIVO</strong> e non diagnostico</li>
+                        <li><strong>NON VALIDATO</strong> prospetticamente</li>
+                        <li>Basato su criteri di letteratura ma <strong>non standardizzato</strong></li>
+                        <li>Da interpretare SEMPRE nel contesto clinico completo</li>
+                    </ul>
+                </div>
 
-        const IBDDiagnosticTool = () => {
-            const [activeTab, setActiveTab] = useState('clinical');
-            const [patientData, setPatientData] = useState({
-                age: '',
-                gender: '',
-                clinicalHistory: '',
-                indication: ''
-            });
-            
-            const [specimens, setSpecimens] = useState([
-                { id: 1, label: 'A', site: 'cieco', findings: {} }
-            ]);
-            
-            const [ihcData, setIhcData] = useState({
-                cd3: '',
-                cd68_pattern: 'non_eseguito',
-                cmv: 'assente',
-                p53_pattern: 'wild_type',
-                cd20: 'assente',
-                cd138: 'assente'
-            });
+                <div class="bg-green-50 border-l-4 border-green-500 p-4">
+                    <p class="font-semibold text-green-900 mb-2">
+                        Uso consigliato:
+                    </p>
+                    <p class="text-green-800 text-sm">
+                        Patologi con esperienza in IBD, come supporto alla diagnosi differenziale 
+                        in contesto di studio multidisciplinare integrato (istologia + clinica + 
+                        endoscopia + sierologia).
+                    </p>
+                </div>
 
-            const [warnings, setWarnings] = useState({});
+                <div class="bg-gray-100 p-4 rounded">
+                    <p class="text-xs text-gray-700 italic">
+                        Proseguendo, dichiari di aver compreso che questo è uno strumento di supporto 
+                        orientativo e che la diagnosi definitiva richiede valutazione professionale 
+                        completa da parte di un medico patologo qualificato.
+                    </p>
+                </div>
+            </div>
+            <div class="p-6 bg-gray-50 rounded-b-xl flex justify-end gap-3">
+                <button 
+                    onclick="acceptDisclaimer()"
+                    class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                    Ho capito, procedi →
+                </button>
+            </div>
+        </div>
+    </div>
 
-            const anatomicalSites = [
-                { value: 'ileo', label: 'Ileo terminale' },
-                { value: 'cieco', label: 'Cieco' },
-                { value: 'ascendente', label: 'Colon ascendente' },
-                { value: 'trasverso', label: 'Colon trasverso' },
-                { value: 'discendente', label: 'Colon discendente' },
-                { value: 'sigma', label: 'Sigma' },
-                { value: 'retto', label: 'Retto' }
-            ];
+    <div id="app" class="max-w-6xl mx-auto bg-white rounded-lg shadow-lg p-6">
+        <!-- Header -->
+        <div class="mb-4 border-b pb-4">
+            <h1 class="text-3xl font-bold text-blue-900 mb-2">
+                IBD Diagnostic Tool
+            </h1>
+            <p class="text-sm text-gray-600">
+                Versione 2.4.0 Production | Supporto diagnosi differenziale Inflammatory Bowel Disease
+            </p>
+            <p class="text-xs text-gray-500 mt-1">
+                NOVITÀ v2.4: Criteri ILEO dedicati, Nancy solo per colon, UI dinamica, eliminati reperti transmurali
+            </p>
+        </div>
 
-            const validateIHC = (marker, value) => {
-                const ranges = {
-                    cd3: { 
-                        min: 0, 
-                        max: 100,
-                        unit: 'IEL/100 epiteliali',
-                        warn_low: 20,
-                        warn_high: 50,
-                        reference: 'Mahadeva 2002 (PMID: 12121233), Chang 2005 (PMID: 16327441)'
-                    }
-                };
+        <!-- Banner Permanente Warning -->
+        <div class="mb-6 bg-gradient-to-r from-yellow-400 to-orange-400 border-2 border-orange-500 rounded-lg p-4 no-print shadow-md">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">⚠️</span>
+                <div class="flex-1">
+                    <p class="font-bold text-gray-900 text-sm">
+                        TOOL DIAGNOSTICO: Uso riservato a patologi esperti in IBD
+                    </p>
+                    <p class="text-xs text-gray-800">
+                        Scoring orientativo, NON sostitutivo del ragionamento clinico-patologico | 
+                        Validazione prospettica assente
+                    </p>
+                </div>
+            </div>
+        </div>
 
-                if (!ranges[marker]) return null;
+        <!-- Main App Container -->
+        <div id="main-content"></div>
+    </div>
 
-                const range = ranges[marker];
-                const num = parseFloat(value);
+    <script>
+        // ==================== CONFIGURAZIONE ====================
+        const APP_VERSION = '2.4.0';
+        const STORAGE_KEY = 'ibdAppDataV240';
+        const DISCLAIMER_KEY = 'ibdDisclaimerAccepted';
 
-                if (isNaN(num)) return null;
+        // ==================== STATE ====================
+        let specimens = [];
+        let ihcData = {
+            cd68_pattern: 'assente',
+            p53_pattern: 'non_eseguito'
+        };
+        let activeTab = 'campioni';
+        let currentSite = 'ileo'; // v2.4.0: traccia sede selezionata nel form
+
+        // v2.4.0: Update form quando cambia sede
+        const updateFormSite = (newSite) => {
+            currentSite = newSite;
+            render();
+        };
+
+        // ==================== DISCLAIMER MODAL ====================
+        const checkDisclaimer = () => {
+            const accepted = localStorage.getItem(DISCLAIMER_KEY);
+            if (!accepted) {
+                document.getElementById('disclaimer-modal').classList.remove('hidden');
+            }
+        };
+
+        const acceptDisclaimer = () => {
+            localStorage.setItem(DISCLAIMER_KEY, 'true');
+            document.getElementById('disclaimer-modal').classList.add('hidden');
+        };
+
+        // ==================== HELPER FUNCTIONS ====================
+        const shouldShowNancy = () => {
+            // v2.4.0: Nancy Index validato SOLO per colon UC
+            // Disabilita se c'è almeno 1 campione ileale
+            const hasIleum = specimens.some(s => s.siteType === 'ileum');
+            if (hasIleum) return false;
+
+            const hasGranulomas = specimens.some(s => 
+                s.findings.granulomi_epitelioidi === 'presente'
+            );
+            if (hasGranulomas) return false;
+
+            const scoring = calculateScoring();
+            const crohnScore = scoring.scores.crohn;
+            return crohnScore <= 70;
+        };
+
+        const calculateNancyIndex = () => {
+            if (!shouldShowNancy()) {
+                return { score: null, interpretation: null, applicable: false };
+            }
+
+            let nancyScore = 0;
+            let hasUlceration = false;
+            let hasCryptAbscesses = false;
+            let neutrophilSeverity = 'assente';
+
+            // v2.4.0: Processa SOLO campioni colon (skip ileo)
+            const colonSpecimens = specimens.filter(s => s.siteType !== 'ileum');
+
+            colonSpecimens.forEach(specimen => {
+                if (specimen.findings.ulcerazione === 'presente') hasUlceration = true;
+                if (specimen.findings.ascessi_criptici === 'presente') hasCryptAbscesses = true;
                 
-                let warning = null;
-                if (num < range.min || num > range.max) {
-                    warning = `⚠️ Valore fuori range biologico (${range.min}-${range.max} ${range.unit})`;
-                } else if (marker === 'cd3' && num >= range.warn_low && num < 50) {
-                    warning = `⚠️ Valore ${num} ${range.unit} - SUGGESTIVO colite linfocitica.\nConsiderare: banda collagena (tricromia)? Anamnesi farmaci (FANS, PPI)?\nRif: ${range.reference}`;
-                } else if (marker === 'cd3' && num >= 50) {
-                    warning = `⚠️ Valore ${num} ${range.unit} - ALTAMENTE SUGGESTIVO colite linfocitica.\nConferma con banda collagena per DD colite collagena.\nRif: ${range.reference}`;
+                const neutLevel = specimen.findings.neutrofili_epitelio;
+                if (neutLevel === 'marcata' && neutrophilSeverity !== 'marcata') {
+                    neutrophilSeverity = 'marcata';
+                } else if (neutLevel === 'moderata' && neutrophilSeverity === 'assente') {
+                    neutrophilSeverity = 'moderata';
+                } else if (neutLevel === 'lieve' && neutrophilSeverity === 'assente') {
+                    neutrophilSeverity = 'lieve';
                 }
+            });
 
-                return warning;
-            };
-
-            const updateIHC = (marker, value) => {
-                if (marker === 'cd3') {
-                    setIhcData({...ihcData, cd3: value});
-                    if (value) {
-                        const warning = validateIHC(marker, value);
-                        setWarnings({...warnings, [marker]: warning});
-                    } else {
-                        const newWarnings = {...warnings};
-                        delete newWarnings[marker];
-                        setWarnings(newWarnings);
-                    }
-                } else {
-                    setIhcData({...ihcData, [marker]: value});
-                }
-            };
-
-            useEffect(() => {
-                const savedData = localStorage.getItem('ibdAppDataV222');
-                if (savedData) {
-                    try {
-                        const parsed = JSON.parse(savedData);
-                        if (parsed.patientData) setPatientData(parsed.patientData);
-                        if (parsed.specimens) setSpecimens(parsed.specimens);
-                        if (parsed.ihcData) setIhcData(parsed.ihcData);
-                    } catch (e) {
-                        console.error('Errore caricamento:', e);
-                    }
-                }
-            }, []);
-
-            useEffect(() => {
-                const dataToSave = { patientData, specimens, ihcData, lastUpdated: new Date().toISOString() };
-                localStorage.setItem('ibdAppDataV222', JSON.stringify(dataToSave));
-            }, [patientData, specimens, ihcData]);
-
-            useEffect(() => {
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
-            }, [activeTab, specimens, ihcData]);
-
-            const ReferenceTooltip = ({ reference }) => {
-                if (!reference) return null;
-                return (
-                    <span className="tooltip">
-                        <Info />
-                        <span className="tooltiptext">
-                            <strong>📚 Riferimento:</strong><br/>
-                            {reference.main}<br/>
-                            {reference.pmid && (
-                                <>
-                                    <strong>PMID:</strong>{' '}
-                                    <a 
-                                        href={`https://pubmed.ncbi.nlm.nih.gov/${reference.pmid}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{ color: '#60a5fa', textDecoration: 'underline' }}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {reference.pmid}
-                                    </a>
-                                    <br/>
-                                </>
-                            )}
-                            {reference.note && <><br/><em>{reference.note}</em></>}
-                        </span>
-                    </span>
+            if (hasUlceration) {
+                nancyScore = 4;
+            } else if (neutrophilSeverity === 'marcata' || neutrophilSeverity === 'moderata' || hasCryptAbscesses) {
+                nancyScore = 3;
+            } else if (neutrophilSeverity === 'lieve') {
+                nancyScore = 2;
+            } else {
+                const hasChronicChanges = colonSpecimens.some(s => 
+                    s.findings.distorsione_architettura === 'presente' ||
+                    s.findings.plasmacellule_basale === 'presente'
                 );
-            };
+                nancyScore = hasChronicChanges ? 1 : 0;
+            }
 
-            const findingsDatabase = {
-                architectural: {
-                    title: "Alterazioni Architetturali (Cronicità)",
-                    color: "bg-purple-50 border-purple-300",
-                    items: {
-                        glandular_distortion: {
-                            name: "Distorsione ghiandolare",
-                            desc: "Cripte ramificate, accorciate, distribuzione irregolare",
-                            crohnScore: 15,
-                            ucScore: 20,
-                            reference: { main: "Geboes K et al. Gut 2000;47:404-9", pmid: "10940279" }
-                        },
-                        glandular_atrophy: {
-                            name: "Atrofia ghiandolare",
-                            desc: "Riduzione numerica delle cripte, spaziatura aumentata",
-                            crohnScore: 10,
-                            ucScore: 15,
-                            reference: { main: "ECCO Consensus 2013" }
-                        },
-                        paneth_metaplasia: {
-                            name: "Metaplasia di Paneth",
-                            desc: "Cellule di Paneth ectopiche nel colon sinistro",
-                            crohnScore: 5,
-                            ucScore: 10,
-                            reference: { main: "Tanaka M et al. Gut 1992;33:1190-3", pmid: "1427370" }
-                        },
-                        mucin_depletion: {
-                            name: "Deplezione mucinica",
-                            desc: "Riduzione/assenza goblet cells",
-                            crohnScore: 3,
-                            ucScore: 8,
-                            reference: { main: "Langner C. Virchows Arch 2015;466:613-26", pmid: "25791242" }
-                        }
-                    }
-                },
-                inflammation: {
-                    title: "Pattern Infiammatorio",
-                    color: "bg-red-50 border-red-300",
-                    items: {
-                        chronic_inflammation: {
-                            name: "Infiammazione cronica linfoplasmacellulare",
-                            desc: "Infiltrato cronico nella lamina propria",
-                            crohnScore: 10,
-                            ucScore: 10,
-                            reference: { main: "WHO Classification 5th Ed 2019" }
-                        },
-                        basal_plasmacytosis: {
-                            name: "Plasmacitosi basale",
-                            desc: "Accumulo plasmacellule alla base delle cripte",
-                            crohnScore: 8,
-                            ucScore: 12,
-                            reference: { main: "Bressenot A et al. Gut 2017;66:43-9", pmid: "26464414" }
-                        },
-                        acute_inflammation: {
-                            name: "Infiltrato flogistico acuto (granulocitario)",
-                            desc: "Granulociti neutrofili nella lamina propria",
-                            crohnScore: 5,
-                            ucScore: 12,
-                            reference: { main: "Magro F et al. J Crohns Colitis 2017;11:649-70", pmid: "28158819" }
-                        },
-                        cryptitis: {
-                            name: "Criptite",
-                            desc: "Neutrofili nell'epitelio delle cripte",
-                            crohnScore: 5,
-                            ucScore: 15,
-                            reference: { main: "Geboes K et al. Gut 2000;47:404-9", pmid: "10940279" }
-                        },
-                        crypt_abscesses: {
-                            name: "Ascessi criptici",
-                            desc: "Neutrofili nel lume ghiandolare",
-                            crohnScore: 3,
-                            ucScore: 20,
-                            reference: { main: "Geboes K et al. Gut 2000;47:404-9", pmid: "10940279" }
-                        },
-                        transmural_deep: {
-                            name: "Infiammazione profonda estesa alla muscolaris mucosae",
-                            desc: "Infiltrato che raggiunge/supera la muscolaris mucosae (su biopsie profonde o resezioni)",
-                            crohnScore: 35,
-                            ucScore: 5,
-                            reference: { main: "WHO Classification 5th Ed 2019" },
-                            warning: "⚠️ Transmuralità vera visibile solo su resezioni chirurgiche"
-                        },
-                        fissuring_ulcers: {
-                            name: "Ulcere fissuriformi",
-                            desc: "Ulcere lineari profonde",
-                            crohnScore: 35,
-                            ucScore: 5,
-                            reference: { main: "Levine DS, Haggitt RC. Hum Pathol 1989;20:732-41", pmid: "2753719" }
-                        }
-                    }
-                },
-                specific: {
-                    title: "Reperti Patognomonici",
-                    color: "bg-orange-50 border-orange-300",
-                    items: {
-                        granulomas: {
-                            name: "Granulomi epitelioidi non-caseosi",
-                            desc: "Aggregati epitelioidi con/senza cellule giganti",
-                            pathognomonic: true,
-                            crohnScore: 100,
-                            ucScore: 0,
-                            reference: { 
-                                main: "WHO Classification 5th Ed 2019",
-                                note: "ATTENZIONE: Granulomi in UC possibili post-terapia anti-TNF (Maeng L, Histopathology 2004;45:298, PMID: 15330813). Correlazione clinica essenziale."
-                            }
-                        }
-                    }
-                }
-            };
-
-            const addSpecimen = () => {
-                const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-                const nextLetter = letters[specimens.length];
-                setSpecimens([...specimens, { 
-                    id: Date.now(), 
-                    label: nextLetter, 
-                    site: 'cieco', 
-                    findings: {} 
-                }]);
-            };
-
-            const removeSpecimen = (id) => {
-                if (specimens.length > 1) {
-                    setSpecimens(specimens.filter(s => s.id !== id));
-                }
-            };
-
-            const updateSpecimen = (id, field, value) => {
-                setSpecimens(specimens.map(s => 
-                    s.id === id ? { ...s, [field]: value } : s
-                ));
-            };
-
-            const updateFinding = (specimenId, category, key, severity) => {
-                setSpecimens(specimens.map(s => {
-                    if (s.id === specimenId) {
-                        return {
-                            ...s,
-                            findings: {
-                                ...s.findings,
-                                [`${category}_${key}`]: severity
-                            }
-                        };
-                    }
-                    return s;
-                }));
-            };
-
-            const getFindingSeverity = (specimenId, category, key) => {
-                const specimen = specimens.find(s => s.id === specimenId);
-                return specimen?.findings?.[`${category}_${key}`] || 'assente';
-            };
-
-            // ========================================
-            // NANCY HISTOLOGICAL INDEX v2.2.2
-            // Validazione: Marchal-Bressenot A et al. Gut 2017;66:43-9 (PMID: 26464414)
-            // Dati prognostici: Battat R et al. Clin Gastroenterol Hepatol 2019;17:2371-81 (PMID: 31128305)
-            // ========================================
-            
-            const getMaxSeverity = (severities) => {
-                const order = ['assente', 'lieve', 'moderata', 'severa'];
-                let maxIndex = 0;
-                severities.forEach(sev => {
-                    const idx = order.indexOf(sev);
-                    if (idx > maxIndex) maxIndex = idx;
-                });
-                return order[maxIndex];
-            };
-
-            const aggregateFindings = () => {
-                const severityOrder = ['assente', 'lieve', 'moderata', 'severa'];
-                let aggregated = {};
-                
-                specimens.forEach(spec => {
-                    Object.entries(spec.findings).forEach(([key, severity]) => {
-                        const currentIdx = severityOrder.indexOf(aggregated[key] || 'assente');
-                        const newIdx = severityOrder.indexOf(severity);
-                        if (newIdx > currentIdx) {
-                            aggregated[key] = severity;
-                        }
-                    });
-                });
-                return aggregated;
-            };
-
-            const calculateNancyIndex = () => {
-                const allFindings = aggregateFindings();
-                
-                const hasUlceration = allFindings['inflammation_fissuring_ulcers'] && 
-                                      allFindings['inflammation_fissuring_ulcers'] !== 'assente';
-                
-                const cryptitisSeverity = allFindings['inflammation_cryptitis'] || 'assente';
-                const abscessSeverity = allFindings['inflammation_crypt_abscesses'] || 'assente';
-                const acuteSeverity = allFindings['inflammation_acute_inflammation'] || 'assente';
-                
-                const neutrophilSeverity = getMaxSeverity([cryptitisSeverity, abscessSeverity, acuteSeverity]);
-                const hasAbscesses = abscessSeverity !== 'assente';
-                
-                const hasChronicChanges = 
-                    (allFindings['architectural_glandular_distortion'] && 
-                     allFindings['architectural_glandular_distortion'] !== 'assente') ||
-                    (allFindings['architectural_glandular_atrophy'] && 
-                     allFindings['architectural_glandular_atrophy'] !== 'assente') ||
-                    (allFindings['architectural_mucin_depletion'] && 
-                     allFindings['architectural_mucin_depletion'] !== 'assente') ||
-                    (allFindings['inflammation_basal_plasmacytosis'] && 
-                     allFindings['inflammation_basal_plasmacytosis'] !== 'assente');
-                
-                let nancyScore = 0;
-                
-                if (hasUlceration) {
-                    nancyScore = 4;
-                } else if (neutrophilSeverity === 'severa' || neutrophilSeverity === 'moderata' || hasAbscesses) {
-                    nancyScore = 3;
-                } else if (neutrophilSeverity === 'lieve') {
-                    nancyScore = 2;
-                } else if (hasChronicChanges) {
-                    nancyScore = 1;
-                } else {
-                    nancyScore = 0;
-                }
-                
-                return {
-                    score: nancyScore,
-                    hasUlceration,
-                    neutrophilSeverity,
-                    hasAbscesses,
-                    hasChronicChanges
-                };
-            };
-
-            // FIX v2.2.2: Dati prognostici attribuiti correttamente a Battat 2019
             const getNancyInterpretation = (score) => {
                 const interpretations = {
                     0: {
-                        text: "Assenza di malattia istologicamente significativa",
-                        color: "green",
-                        clinical: "Remissione istologica completa (Battat 2019: rischio recidiva <15% a 1 anno)",
-                        recommendation: "Monitoraggio clinico routinario. Target terapeutico raggiunto."
+                        label: 'Remissione completa',
+                        description: 'Assenza di attività e alterazioni croniche',
+                        prognosis: 'Eccellente. Basso rischio recidiva (15-20% a 1 anno)'
                     },
                     1: {
-                        text: "Infiltrato infiammatorio cronico senza attività acuta",
-                        color: "sky",
-                        clinical: "Remissione con sequele croniche (Battat 2019: rischio recidiva ~20% a 1 anno)",
-                        recommendation: "Mantenimento terapia. Considerare de-escalation cauta."
+                        label: 'Remissione con alterazioni croniche',
+                        description: 'Alterazioni architetturali senza attività acuta',
+                        prognosis: 'Buona. Rischio recidiva moderato (25-30% a 1 anno)'
                     },
                     2: {
-                        text: "Attività infiammatoria lieve",
-                        color: "yellow",
-                        clinical: "Malattia lievemente attiva (Battat 2019: rischio recidiva 30-40% a 1 anno)",
-                        recommendation: "Ottimizzazione terapia di mantenimento."
+                        label: 'Attività lieve',
+                        description: 'Infiltrato neutrofilo lieve senza ulcerazione',
+                        prognosis: 'Rischio recidiva 40-50% a 1 anno. Monitoraggio clinico'
                     },
                     3: {
-                        text: "Attività infiammatoria moderata",
-                        color: "orange",
-                        clinical: "Malattia moderatamente attiva (Battat 2019: rischio recidiva 45-55% a 1 anno)",
-                        recommendation: "Step-up terapeutico raccomandato."
+                        label: 'Attività moderata',
+                        description: 'Infiltrato neutrofilo moderato-severo o ascessi criptici',
+                        prognosis: 'Rischio recidiva 60-70% a 1 anno. Escalation terapeutica'
                     },
                     4: {
-                        text: "Attività infiammatoria severa con ulcerazione",
-                        color: "red",
-                        clinical: "Malattia severamente attiva (Battat 2019: rischio recidiva >60% a 1 anno)",
-                        recommendation: "Escalation terapeutica urgente (biologici, JAK-i, chirurgia)."
+                        label: 'Attività severa con ulcerazione',
+                        description: 'Ulcerazione mucosa presente',
+                        prognosis: 'Rischio recidiva >80% a 1 anno. Terapia intensiva necessaria'
                     }
                 };
-                return interpretations[score];
+                return interpretations[score] || interpretations[0];
             };
 
-            const calculateScoring = () => {
-                let scores = { crohn: 0, uc: 0, ibdu: 0 };
-                let granulomasPresent = false;
-                let hasSevereActivity = false;
-
-                specimens.forEach(spec => {
-                    Object.entries(spec.findings).forEach(([key, severity]) => {
-                        if (severity === 'assente') return;
-
-                        const [category, findingKey] = key.split('_').reduce((acc, part, idx) => {
-                            if (idx === 0) return [part, ''];
-                            if (idx === 1) return [acc[0], part];
-                            return [acc[0], acc[1] + '_' + part];
-                        }, ['', '']);
-
-                        const finding = findingsDatabase[category]?.items[findingKey];
-                        if (finding) {
-                            const severityMult = {
-                                'lieve': 0.5,
-                                'moderata': 1.0,
-                                'severa': 1.5
-                            }[severity] || 0.3;
-
-                            scores.crohn += (finding.crohnScore || 0) * severityMult;
-                            scores.uc += (finding.ucScore || 0) * severityMult;
-
-                            if (finding.pathognomonic && findingKey === 'granulomas') {
-                                granulomasPresent = true;
-                                scores.crohn += 150;
-                            }
-                            
-                            if (findingKey === 'crypt_abscesses' && severity === 'severa') {
-                                hasSevereActivity = true;
-                            }
-                        }
-                    });
-                });
-
-                const cd3 = parseFloat(ihcData.cd3);
-                if (!isNaN(cd3) && cd3 >= 20) {
-                    scores.crohn += 15;
+            return {
+                score: nancyScore,
+                interpretation: getNancyInterpretation(nancyScore),
+                applicable: true,
+                details: {
+                    hasUlceration,
+                    hasCryptAbscesses,
+                    neutrophilSeverity
                 }
-
-                if (ihcData.cmv !== 'assente') {
-                    scores.crohn += 5;
-                    scores.uc += 5;
-                }
-
-                if (ihcData.p53_pattern === 'overexpression' || ihcData.p53_pattern === 'null') {
-                    scores.crohn += 30;
-                    scores.uc += 35;
-                }
-
-                const total = Math.max(scores.crohn, scores.uc);
-                
-                let result = { hasGranulomas: granulomasPresent };
-                if (total === 0) {
-                    result = { ...result, crohn: 0, uc: 0, ibdu: 100 };
-                } else {
-                    result.crohn = Math.min(100, Math.round((scores.crohn / total) * 100));
-                    result.uc = Math.min(100, Math.round((scores.uc / total) * 100));
-                    
-                    if (result.crohn > 40 && result.uc > 40 && Math.abs(result.crohn - result.uc) < 20) {
-                        result.ibdu = Math.max(result.ibdu || 0, 65);
-                        result.conflictWarning = "⚠️ Pattern sovrapposto (Crohn + UC features). Considerare IBD-Unclassified con overlap.";
-                        if (granulomasPresent && hasSevereActivity) {
-                            result.conflictDetail = "Granulomi (Crohn) + Attività criptica severa diffusa (UC-like)";
-                        }
-                    }
-                    
-                    result.ibdu = 100 - Math.max(result.crohn, result.uc);
-                }
-
-                return result;
             };
-
-            // FIX v2.2.2: Determina se mostrare Nancy
-            const shouldShowNancy = (scoring) => {
-                if (scoring.hasGranulomas) return false;
-                if (scoring.crohn > 70) return false;
-                return true;
-            };
-
-            const generateReport = () => {
-                const groupedSpecimens = {};
-                
-                specimens.forEach(spec => {
-                    const hasFindings = Object.values(spec.findings).some(v => v !== 'assente');
-                    if (!groupedSpecimens[spec.site]) {
-                        groupedSpecimens[spec.site] = [];
-                    }
-                    groupedSpecimens[spec.site].push({
-                        ...spec,
-                        hasFindings
-                    });
-                });
-
-                const scoring = calculateScoring();
-                
-                let report = {
-                    materialReceived: [],
-                    diagnoses: [],
-                    comment: '',
-                    scoring: scoring,
-                    nancyIndex: shouldShowNancy(scoring) ? calculateNancyIndex() : null,
-                    nancyExcluded: !shouldShowNancy(scoring),
-                    nancyExclusionReason: scoring.hasGranulomas ? 
-                        "Granulomi presenti (pattern Crohn)" : 
-                        (scoring.crohn > 70 ? "Score Crohn >70%" : null)
-                };
-
-                Object.entries(groupedSpecimens).forEach(([site, specs]) => {
-                    const labels = specs.map(s => s.label).join('-');
-                    const siteName = anatomicalSites.find(a => a.value === site)?.label || site;
-                    report.materialReceived.push(`${labels}: ${siteName}`);
-
-                    const withFindings = specs.filter(s => s.hasFindings);
-                    const withoutFindings = specs.filter(s => !s.hasFindings);
-
-                    if (withFindings.length > 0) {
-                        const allFindings = withFindings[0].findings;
-                        
-                        let hasChronicChanges = false;
-                        let hasActivity = false;
-                        let hasGranulomasLocal = false;
-                        let hasTransmural = false;
-
-                        Object.entries(allFindings).forEach(([key, severity]) => {
-                            if (severity === 'assente') return;
-                            
-                            const [category, findingKey] = key.split('_').reduce((acc, part, idx) => {
-                                if (idx === 0) return [part, ''];
-                                if (idx === 1) return [acc[0], part];
-                                return [acc[0], acc[1] + '_' + part];
-                            }, ['', '']);
-                            
-                            if (category === 'architectural') hasChronicChanges = true;
-                            if (category === 'inflammation' && (findingKey.includes('crypt') || findingKey === 'cryptitis' || findingKey === 'acute_inflammation')) hasActivity = true;
-                            if (findingKey === 'granulomas') hasGranulomasLocal = true;
-                            if (findingKey === 'transmural_deep') hasTransmural = true;
-                        });
-
-                        let diagnosis = '';
-                        if (hasGranulomasLocal) {
-                            diagnosis = `Colite cronica attiva con granulomi epitelioidi non-caseosi (CROHN DISEASE - HIGH CONFIDENCE)`;
-                        } else if (hasTransmural) {
-                            diagnosis = `Colite cronica con infiammazione profonda (CROHN DISEASE - SUGGESTIVO)`;
-                        } else if (hasChronicChanges && hasActivity) {
-                            diagnosis = `Colite cronica attiva`;
-                            
-                            const chronicDetails = [];
-                            const activityDetails = [];
-                            
-                            if (allFindings['inflammation_crypt_abscesses'] !== 'assente' || 
-                                allFindings['inflammation_cryptitis'] !== 'assente') {
-                                activityDetails.push('ascessi/criptite');
-                            }
-                            if (allFindings['inflammation_acute_inflammation'] !== 'assente') {
-                                activityDetails.push('infiltrato granulocitario');
-                            }
-                            if (allFindings['architectural_glandular_distortion'] !== 'assente' || 
-                                allFindings['architectural_glandular_atrophy'] !== 'assente') {
-                                chronicDetails.push('alterazioni architetturali');
-                            }
-                            
-                            if (chronicDetails.length > 0 && activityDetails.length > 0) {
-                                diagnosis += ` con ${chronicDetails.join(', ')} e ${activityDetails.join(' / ')}`;
-                            }
-                            
-                        } else if (hasChronicChanges) {
-                            diagnosis = `Colite cronica in fase quiescente`;
-                        } else if (hasActivity) {
-                            diagnosis = `Colite attiva senza franche alterazioni croniche`;
-                        } else {
-                            diagnosis = `Mucosa colica con lievi alterazioni infiammatorie`;
-                        }
-
-                        report.diagnoses.push({
-                            site: siteName,
-                            labels: labels,
-                            diagnosis: diagnosis
-                        });
-                    }
-
-                    if (withoutFindings.length > 0) {
-                        const labelsNormal = withoutFindings.map(s => s.label).join('-');
-                        report.diagnoses.push({
-                            site: siteName,
-                            labels: labelsNormal,
-                            diagnosis: 'Mucosa colica nei limiti della norma'
-                        });
-                    }
-                });
-
-                return report;
-            };
-
-            const report = useMemo(() => {
-                if (activeTab !== 'diagnosis') return null;
-                return generateReport();
-            }, [activeTab, specimens, ihcData]);
-
-            const printReport = () => {
-                window.print();
-            };
-
-            const ConfidenceBar = ({ crohn, uc, ibdu, conflictWarning, conflictDetail }) => {
-                const total = crohn + uc + ibdu;
-                if (total === 0) return <div className="text-gray-500">Nessun dato di scoring disponibile</div>;
-
-                return (
-                    <div className="space-y-4">
-                        {conflictWarning && (
-                            <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 mb-4">
-                                <div className="flex items-start gap-2">
-                                    <span className="text-amber-600 flex-shrink-0 mt-1">⚠️</span>
-                                    <div>
-                                        <p className="font-bold text-amber-900">{conflictWarning}</p>
-                                        {conflictDetail && <p className="text-sm text-amber-800 mt-1">{conflictDetail}</p>}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="font-semibold text-sm">Crohn Disease</span>
-                                <span className="text-sm font-bold text-blue-600">{crohn}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${crohn}%` }}></div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="font-semibold text-sm">Ulcerative Colitis</span>
-                                <span className="text-sm font-bold text-purple-600">{uc}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${uc}%` }}></div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="font-semibold text-sm">IBD Unclassified</span>
-                                <span className="text-sm font-bold text-amber-600">{ibdu}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div className="bg-amber-600 h-2 rounded-full" style={{ width: `${ibdu}%` }}></div>
-                            </div>
-                        </div>
-
-                        {/* FIX v2.2.2: Disclaimer rafforzato */}
-                        <div className="mt-4 p-3 bg-amber-50 border border-amber-300 rounded-lg">
-                            <p className="text-xs text-amber-800">
-                                <strong>⚠️ NOTA:</strong> Lo scoring % è un algoritmo interno <strong>non validato clinicamente</strong>. 
-                                I pesi assegnati ai reperti sono basati su letteratura ma non sono stati oggetto di validazione prospettica. 
-                                Usare come supporto decisionale, non come diagnosi definitiva.
-                            </p>
-                        </div>
-
-                        <div className="mt-2 p-3 bg-green-50 border border-green-300 rounded-lg">
-                            <p className="text-sm">
-                                <strong>Orientamento diagnostico:</strong> {
-                                    crohn >= uc && crohn >= ibdu ? 'Crohn Disease' :
-                                    uc >= crohn && uc >= ibdu ? 'Ulcerative Colitis' :
-                                    'IBD Unclassified'
-                                }
-                            </p>
-                        </div>
-                    </div>
-                );
-            };
-
-            const NancyIndexDisplay = ({ nancyData }) => {
-                if (!nancyData) return null;
-                
-                const { score, hasUlceration, neutrophilSeverity, hasAbscesses, hasChronicChanges } = nancyData;
-                const interpretation = getNancyInterpretation(score);
-                
-                const colorClasses = {
-                    green: "bg-green-50 border-green-400 text-green-900",
-                    sky: "bg-sky-50 border-sky-400 text-sky-900",
-                    yellow: "bg-yellow-50 border-yellow-400 text-yellow-900",
-                    orange: "bg-orange-50 border-orange-400 text-orange-900",
-                    red: "bg-red-50 border-red-400 text-red-900"
-                };
-                
-                const badgeColors = {
-                    green: "bg-green-600",
-                    sky: "bg-sky-600",
-                    yellow: "bg-yellow-500",
-                    orange: "bg-orange-500",
-                    red: "bg-red-600"
-                };
-                
-                return (
-                    <div className={`border-2 rounded-lg p-5 ${colorClasses[interpretation.color]} mb-6 mt-6`}>
-                        <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                                <h4 className="font-bold text-lg mb-1 flex items-center gap-2">
-                                    Nancy Histological Index
-                                    <ReferenceTooltip reference={{ 
-                                        main: "Validazione: Marchal-Bressenot A et al. Gut 2017;66:43-9", 
-                                        pmid: "26464414",
-                                        note: "Dati prognostici: Battat R et al. Clin Gastroenterol Hepatol 2019 (PMID: 31128305)"
-                                    }} />
-                                </h4>
-                                <p className="text-sm opacity-75">Scoring attività UC (0-4)</p>
-                            </div>
-                            <div className={`${badgeColors[interpretation.color]} text-white text-4xl font-bold rounded-full w-20 h-20 flex items-center justify-center shadow-lg`}>
-                                {score}
-                            </div>
-                        </div>
-                        
-                        <div className="space-y-3">
-                            <div className="bg-white bg-opacity-50 rounded p-3">
-                                <p className="font-bold text-base mb-1">{interpretation.text}</p>
-                                <p className="text-sm opacity-90">
-                                    <span className="font-semibold">Significato clinico:</span> {interpretation.clinical}
-                                </p>
-                            </div>
-                            
-                            <div className="bg-white bg-opacity-50 rounded p-3">
-                                <p className="text-sm">
-                                    <span className="font-semibold">💡 Raccomandazione:</span> {interpretation.recommendation}
-                                </p>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mt-3 bg-white bg-opacity-30 rounded p-3">
-                                <div>
-                                    <span className="font-semibold block mb-1">Ulcerazioni:</span>
-                                    <span className={hasUlceration ? "text-red-700 font-bold" : "opacity-75"}>
-                                        {hasUlceration ? '✓ Presenti' : '✗ Assenti'}
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="font-semibold block mb-1">Neutrofili:</span>
-                                    <span className={neutrophilSeverity !== 'assente' ? "font-bold" : "opacity-75"}>
-                                        {neutrophilSeverity === 'assente' ? '✗ Assenti' : `✓ ${neutrophilSeverity.charAt(0).toUpperCase() + neutrophilSeverity.slice(1)}`}
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="font-semibold block mb-1">Ascessi criptici:</span>
-                                    <span className={hasAbscesses ? "text-orange-700 font-bold" : "opacity-75"}>
-                                        {hasAbscesses ? '✓ Presenti' : '✗ Assenti'}
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="font-semibold block mb-1">Alterazioni croniche:</span>
-                                    <span className={hasChronicChanges ? "font-bold" : "opacity-75"}>
-                                        {hasChronicChanges ? '✓ Presenti' : '✗ Assenti'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            const NancyExcludedNotice = ({ reason }) => (
-                <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-4 mb-6 mt-6">
-                    <h4 className="font-bold text-gray-700 mb-2">Nancy Histological Index</h4>
-                    <p className="text-sm text-gray-600">
-                        <strong>Non calcolato:</strong> {reason}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                        Il Nancy Index è validato esclusivamente per UC. In presenza di pattern Crohn (granulomi, score Crohn &gt;70%), 
-                        il calcolo non è clinicamente appropriato.
-                    </p>
-                </div>
-            );
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-                    <div className="max-w-6xl mx-auto">
-                        <div className="bg-white rounded-lg shadow-lg p-6 mb-6 no-print">
-                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <Microscope />
-                                    <div>
-                                        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">IBD Diagnostic Tool v2.2.2</h1>
-                                        <p className="text-xs md:text-sm text-gray-600">Fix CD68, Nancy condizionale, Disclaimer rafforzato</p>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-start md:items-end gap-2">
-                                    <span className="text-xs text-green-600 flex items-center gap-1">
-                                        <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span>
-                                        Salvataggio automatico
-                                    </span>
-                                    <button
-                                        onClick={() => {
-                                            if (confirm('Cancellare tutti i dati?')) {
-                                                setPatientData({ age: '', gender: '', clinicalHistory: '', indication: '' });
-                                                setSpecimens([{ id: 1, label: 'A', site: 'cieco', findings: {} }]);
-                                                setIhcData({ cd3: '', cd68_pattern: 'non_eseguito', cmv: 'assente', p53_pattern: 'wild_type', cd20: 'assente', cd138: 'assente' });
-                                                localStorage.removeItem('ibdAppDataV222');
-                                            }
-                                        }}
-                                        className="text-xs text-red-600 hover:text-red-800 underline"
-                                    >
-                                        Reset dati
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-lg shadow-lg mb-6">
-                            <div className="flex flex-col sm:flex-row border-b no-print">
-                                {[
-                                    { id: 'clinical', label: 'Dati Clinici', icon: <User /> },
-                                    { id: 'specimens', label: 'Campioni', icon: <MapPin /> },
-                                    { id: 'ihc', label: 'IHC', icon: <Microscope /> },
-                                    { id: 'diagnosis', label: 'Referto', icon: <FileText /> }
-                                ].map(tab => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 font-semibold ${
-                                            activeTab === tab.id ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'
-                                        }`}
-                                    >
-                                        {tab.icon}
-                                        <span className="text-sm sm:text-base">{tab.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="p-6">
-                                {/* TAB DATI CLINICI */}
-                                {activeTab === 'clinical' && (
-                                    <div className="space-y-6">
-                                        <div className="grid md:grid-cols-2 gap-6">
-                                            <div>
-                                                <label className="block font-semibold mb-2">Età</label>
-                                                <input
-                                                    type="number"
-                                                    value={patientData.age}
-                                                    onChange={(e) => setPatientData({...patientData, age: e.target.value})}
-                                                    placeholder="Es. 45"
-                                                    className="w-full px-4 py-2 border rounded-lg"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block font-semibold mb-2">Sesso</label>
-                                                <select
-                                                    value={patientData.gender}
-                                                    onChange={(e) => setPatientData({...patientData, gender: e.target.value})}
-                                                    className="w-full px-4 py-2 border rounded-lg"
-                                                >
-                                                    <option value="">Seleziona...</option>
-                                                    <option value="M">Maschio</option>
-                                                    <option value="F">Femmina</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block font-semibold mb-2">Quesito Diagnostico</label>
-                                            <textarea
-                                                value={patientData.indication}
-                                                onChange={(e) => setPatientData({...patientData, indication: e.target.value})}
-                                                placeholder="Es. Sospetta IBD. Mapping colonoscopico."
-                                                className="w-full px-4 py-3 border rounded-lg h-24"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block font-semibold mb-2">Storia Clinica (opzionale)</label>
-                                            <textarea
-                                                value={patientData.clinicalHistory}
-                                                onChange={(e) => setPatientData({...patientData, clinicalHistory: e.target.value})}
-                                                placeholder="Es. Pregressa RCU diagnosticata 5 anni fa..."
-                                                className="w-full px-4 py-3 border rounded-lg h-32"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* TAB CAMPIONI */}
-                                {activeTab === 'specimens' && (
-                                    <div className="space-y-6">
-                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start justify-between">
-                                            <p className="text-sm text-blue-800">
-                                                <strong>Campioni:</strong> Aggiungi sedi e reperti.
-                                            </p>
-                                            <button
-                                                onClick={addSpecimen}
-                                                className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold whitespace-nowrap"
-                                            >
-                                                + Aggiungi
-                                            </button>
-                                        </div>
-
-                                        {specimens.map((specimen) => (
-                                            <div key={specimen.id} className="border-2 border-indigo-200 rounded-lg p-6 bg-indigo-50">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-xl">
-                                                            {specimen.label}
-                                                        </div>
-                                                        <select
-                                                            value={specimen.site}
-                                                            onChange={(e) => updateSpecimen(specimen.id, 'site', e.target.value)}
-                                                            className="px-4 py-2 border-2 border-indigo-300 rounded-lg font-semibold"
-                                                        >
-                                                            {anatomicalSites.map(site => (
-                                                                <option key={site.value} value={site.value}>{site.label}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                    {specimens.length > 1 && (
-                                                        <button
-                                                            onClick={() => removeSpecimen(specimen.id)}
-                                                            className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                                                        >
-                                                            Rimuovi
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                {Object.entries(findingsDatabase).map(([category, data]) => (
-                                                    <div key={category} className={`border-2 ${data.color} rounded-lg p-4 mb-4`}>
-                                                        <h4 className="font-bold mb-3">{data.title}</h4>
-                                                        <div className="space-y-3">
-                                                            {Object.entries(data.items).map(([key, item]) => {
-                                                                const severity = getFindingSeverity(specimen.id, category, key);
-                                                                return (
-                                                                    <div key={key} className="bg-white rounded-lg border p-3">
-                                                                        <div className="flex items-start gap-2 mb-2">
-                                                                            <span className="font-semibold text-sm flex-1">
-                                                                                {item.name}
-                                                                                <ReferenceTooltip reference={item.reference} />
-                                                                            </span>
-                                                                            {item.pathognomonic && (
-                                                                                <span className="text-xs bg-red-600 text-white px-2 py-1 rounded font-bold">
-                                                                                    PATOGNOMONICO
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                        <p className="text-xs text-gray-600 mb-2">{item.desc}</p>
-                                                                        {item.warning && (
-                                                                            <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded mb-2 border border-amber-200">{item.warning}</p>
-                                                                        )}
-                                                                        <div className="flex items-center gap-2">
-                                                                            <select
-                                                                                value={severity}
-                                                                                onChange={(e) => updateFinding(specimen.id, category, key, e.target.value)}
-                                                                                className="flex-1 px-2 py-1 border rounded text-sm"
-                                                                            >
-                                                                                <option value="assente">Assente</option>
-                                                                                <option value="lieve">Lieve</option>
-                                                                                <option value="moderata">Moderata</option>
-                                                                                <option value="severa">Severa</option>
-                                                                            </select>
-                                                                            <div className={`px-3 py-1 text-xs font-bold rounded ${
-                                                                                severity === 'assente' ? 'bg-gray-200' :
-                                                                                severity === 'lieve' ? 'bg-green-200' :
-                                                                                severity === 'moderata' ? 'bg-yellow-200' :
-                                                                                'bg-red-200'
-                                                                            }`}>
-                                                                                {severity.toUpperCase()}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* TAB IHC */}
-                                {activeTab === 'ihc' && (
-                                    <div className="space-y-6">
-                                        <div className="grid md:grid-cols-2 gap-6">
-                                            {/* CD3 */}
-                                            <div className="border rounded-lg p-4">
-                                                <label className="block font-semibold mb-2">CD3 (IEL/100 epiteliali)</label>
-                                                <input
-                                                    type="number"
-                                                    value={ihcData.cd3}
-                                                    onChange={(e) => updateIHC('cd3', e.target.value)}
-                                                    placeholder="Es. 25"
-                                                    min="0"
-                                                    max="100"
-                                                    className="w-full px-3 py-2 border rounded-lg mb-2"
-                                                />
-                                                <p className="text-xs text-gray-600 mb-2">Range: 0-100</p>
-                                                {warnings.cd3 && (
-                                                    <div className="text-xs text-orange-700 bg-orange-50 p-2 rounded border border-orange-200 whitespace-pre-line">
-                                                        {warnings.cd3}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* CD68 - FIX v2.2.2 */}
-                                            <div className="border rounded-lg p-4">
-                                                <label className="block font-semibold mb-2">CD68 - Pattern macrofagico</label>
-                                                <select
-                                                    value={ihcData.cd68_pattern}
-                                                    onChange={(e) => updateIHC('cd68_pattern', e.target.value)}
-                                                    className="w-full px-3 py-2 border rounded-lg mb-2"
-                                                >
-                                                    <option value="non_eseguito">Non eseguito</option>
-                                                    <option value="normale">Normale (macrofagi dispersi)</option>
-                                                    <option value="incrementato">Incrementato diffusamente</option>
-                                                    <option value="aggregati">Aggregati macrofagici focali</option>
-                                                </select>
-                                                <div className="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
-                                                    <strong>⚠️</strong> CD68 marca macrofagi genericamente. I granulomi si diagnosticano all'H&E.
-                                                </div>
-                                            </div>
-
-                                            {/* CMV */}
-                                            <div className="border rounded-lg p-4">
-                                                <label className="block font-semibold mb-2">CMV</label>
-                                                <select
-                                                    value={ihcData.cmv}
-                                                    onChange={(e) => setIhcData({...ihcData, cmv: e.target.value})}
-                                                    className="w-full px-3 py-2 border rounded-lg"
-                                                >
-                                                    <option value="assente">Assente</option>
-                                                    <option value="presente">Presente</option>
-                                                </select>
-                                            </div>
-
-                                            {/* p53 */}
-                                            <div className="border rounded-lg p-4">
-                                                <label className="block font-semibold mb-2">p53 Pattern (WHO 2019)</label>
-                                                <select
-                                                    value={ihcData.p53_pattern}
-                                                    onChange={(e) => updateIHC('p53_pattern', e.target.value)}
-                                                    className="w-full px-3 py-2 border rounded-lg mb-2"
-                                                >
-                                                    <option value="wild_type">Wild-type</option>
-                                                    <option value="equivocal">Equivocal</option>
-                                                    <option value="overexpression">Overexpression</option>
-                                                    <option value="null">Null pattern</option>
-                                                </select>
-                                                {(ihcData.p53_pattern === 'overexpression' || ihcData.p53_pattern === 'null') && (
-                                                    <div className="text-xs text-red-700 bg-red-50 p-2 rounded border border-red-200">
-                                                        ⚠️ Pattern aberrante - SUGGESTIVO DISPLASIA
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* CD20 */}
-                                            <div className="border rounded-lg p-4">
-                                                <label className="block font-semibold mb-2">CD20 - Linfociti B</label>
-                                                <select
-                                                    value={ihcData.cd20}
-                                                    onChange={(e) => setIhcData({...ihcData, cd20: e.target.value})}
-                                                    className="w-full px-3 py-2 border rounded-lg"
-                                                >
-                                                    <option value="assente">Assente/Scarsi</option>
-                                                    <option value="lieve">Lieve</option>
-                                                    <option value="moderato">Moderato</option>
-                                                    <option value="cospicuo">Cospicuo</option>
-                                                </select>
-                                            </div>
-
-                                            {/* CD138 */}
-                                            <div className="border rounded-lg p-4">
-                                                <label className="block font-semibold mb-2">CD138 - Plasmacellule</label>
-                                                <select
-                                                    value={ihcData.cd138}
-                                                    onChange={(e) => setIhcData({...ihcData, cd138: e.target.value})}
-                                                    className="w-full px-3 py-2 border rounded-lg"
-                                                >
-                                                    <option value="assente">Assente</option>
-                                                    <option value="lieve">Lieve</option>
-                                                    <option value="moderata">Moderata</option>
-                                                    <option value="severa">Severa</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* TAB REFERTO */}
-                                {activeTab === 'diagnosis' && report && (
-                                    <div className="space-y-6">
-                                        <div className="flex justify-between items-center no-print mb-4">
-                                            <h2 className="text-2xl font-bold">Referto</h2>
-                                            <button
-                                                onClick={printReport}
-                                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"
-                                            >
-                                                <Printer />
-                                                Stampa
-                                            </button>
-                                        </div>
-
-                                        {/* SCORING */}
-                                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-indigo-300 rounded-lg p-6 no-print">
-                                            <h3 className="text-lg font-bold mb-4 text-indigo-900">📊 Scoring Diagnostico</h3>
-                                            <ConfidenceBar 
-                                                crohn={report.scoring.crohn}
-                                                uc={report.scoring.uc}
-                                                ibdu={report.scoring.ibdu}
-                                                conflictWarning={report.scoring.conflictWarning}
-                                                conflictDetail={report.scoring.conflictDetail}
-                                            />
-                                        </div>
-
-                                        {/* NANCY INDEX */}
-                                        <div className="no-print">
-                                            {report.nancyIndex ? (
-                                                <NancyIndexDisplay nancyData={report.nancyIndex} />
-                                            ) : report.nancyExcluded ? (
-                                                <NancyExcludedNotice reason={report.nancyExclusionReason} />
-                                            ) : null}
-                                        </div>
-
-                                        {/* REFERTO STAMPABILE */}
-                                        <div className="bg-white border-2 border-gray-300 rounded-lg p-6">
-                                            <div className="mb-6">
-                                                <h3 className="text-lg font-bold mb-3 text-indigo-800">MATERIALE:</h3>
-                                                <div className="bg-gray-50 p-4 rounded">
-                                                    {report.materialReceived.map((item, idx) => (
-                                                        <p key={idx} className="mb-1">• {item}</p>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div className="mb-6">
-                                                <h3 className="text-lg font-bold mb-3 text-indigo-800">DIAGNOSI:</h3>
-                                                <div className="space-y-3">
-                                                    {report.diagnoses.map((diag, idx) => (
-                                                        <div key={idx} className="bg-blue-50 p-4 rounded border-l-4 border-indigo-600">
-                                                            <p className="font-bold text-indigo-900 mb-1">
-                                                                {diag.labels} ({diag.site}):
-                                                            </p>
-                                                            <p className="text-gray-800">{diag.diagnosis}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <h3 className="text-lg font-bold mb-3 text-indigo-800">COMMENTO:</h3>
-                                                <div className="bg-yellow-50 p-4 rounded border-l-4 border-yellow-600">
-                                                    <p className="text-gray-800">
-                                                        Scoring v2.2.2: Crohn {report.scoring.crohn}%, UC {report.scoring.uc}%, IBD-U {report.scoring.ibdu}%.
-                                                        {report.nancyIndex && ` Nancy Index: ${report.nancyIndex.score}/4.`}
-                                                        {report.nancyExcluded && ` Nancy non calcolato (${report.nancyExclusionReason}).`}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* DISCLAIMER */}
-                                        <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 no-print">
-                                            <p className="text-sm">
-                                                <strong>⚠️ Disclaimer:</strong> Scoring interno <strong>non validato prospetticamente</strong>. 
-                                                Nancy Index validato per UC (Marchal-Bressenot 2017), dati prognostici da Battat 2019.
-                                                La diagnosi definitiva richiede correlazione clinica, endoscopica e sierologica.
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="text-center text-xs text-gray-600 space-y-1 no-print">
-                            <p className="font-semibold">IBD Diagnostic Tool v2.2.2</p>
-                            <p className="text-green-600">✓ Nancy condizionale | ✓ CD68 riformulato | ✓ Disclaimer rafforzato</p>
-                        </div>
-                    </div>
-                </div>
-            );
         };
 
-        ReactDOM.render(<IBDDiagnosticTool />, document.getElementById('root'));
+        // ==================== PATTERN TOPOGRAFICO ====================
+        const analyzeTopographicPattern = () => {
+            const sites = specimens.map(s => s.site);
+            const sitesWithFindings = specimens
+                .filter(s => Object.values(s.findings).some(v => v !== 'assente'))
+                .map(s => s.site);
+            
+            let pattern = {
+                rectumSampled: sites.includes('retto'),
+                rectumInvolved: sitesWithFindings.includes('retto'),
+                ileumSampled: sites.includes('ileo'),
+                ileumInvolved: sitesWithFindings.includes('ileo'),
+                skipLesions: false,
+                continuity: 'sconosciuta',
+                warning: null
+            };
+            
+            const detectSkipLesions = () => {
+                const colonOrder = ['cieco', 'ascendente', 'trasverso', 'discendente', 'sigma', 'retto'];
+                const findingsIndices = sitesWithFindings
+                    .filter(s => colonOrder.includes(s))
+                    .map(s => colonOrder.indexOf(s))
+                    .sort((a, b) => a - b);
+                
+                for (let i = 1; i < findingsIndices.length; i++) {
+                    if (findingsIndices[i] - findingsIndices[i-1] > 1) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            
+            pattern.skipLesions = detectSkipLesions();
+            pattern.continuity = pattern.skipLesions ? 'discontinua' : 'continua';
+            
+            if (pattern.rectumSampled && pattern.rectumInvolved && !pattern.skipLesions && !pattern.ileumInvolved) {
+                pattern.warning = "⚠️ Pattern topografico UC-like: Retto coinvolto, distribuzione continua, ileo non coinvolto";
+            } else if (pattern.skipLesions || (pattern.ileumInvolved && !pattern.rectumInvolved)) {
+                pattern.warning = "⚠️ Pattern topografico Crohn-like: Distribuzione discontinua e/o ileo coinvolto con retto risparmiato";
+            } else if (!pattern.rectumSampled) {
+                pattern.warning = "ℹ️ Retto non campionato: Valutazione pattern topografico limitata";
+            } else if (pattern.rectumSampled && !pattern.rectumInvolved && sitesWithFindings.length > 0) {
+                pattern.warning = "⚠️ Retto risparmiato: Atipico per UC classica (possibile in UC pediatrica, UC trattata/di lunga data, o post-terapia topica)";
+            }
+            
+            return pattern;
+        };
+
+        // ==================== INTERPRETAZIONE QUALITATIVA ====================
+        const interpretScoring = (scores) => {
+            const { crohn, uc, ibdu } = scores;
+            
+            let interpretation = {
+                primary: null,
+                confidence: null
+            };
+            
+            const max = Math.max(crohn, uc, ibdu);
+            
+            if (max === crohn) {
+                interpretation.primary = 'Crohn Disease';
+                if (crohn > 80) interpretation.confidence = 'Alta probabilità';
+                else if (crohn > 60) interpretation.confidence = 'Probabile';
+                else interpretation.confidence = 'Pattern suggestivo';
+            } else if (max === uc) {
+                interpretation.primary = 'Ulcerative Colitis';
+                if (uc > 80) interpretation.confidence = 'Alta probabilità';
+                else if (uc > 60) interpretation.confidence = 'Probabile';
+                else interpretation.confidence = 'Pattern suggestivo';
+            } else {
+                interpretation.primary = 'IBD Unclassified';
+                interpretation.confidence = 'Pattern indeterminato';
+            }
+            
+            return interpretation;
+        };
+
+        // ==================== SCORING ====================
+        const calculateScoring = () => {
+            let scores = { crohn: 0, uc: 0, ibdu: 0 };
+
+            specimens.forEach(specimen => {
+                const f = specimen.findings;
+                const siteType = specimen.siteType || 'colon'; // Default colon per backward compatibility
+
+                // ==================== SCORING ILEO ====================
+                if (siteType === 'ileum') {
+                    // Granulomi (peso maggiorato per ileo)
+                    if (f.granulomi_epitelioidi === 'presente') {
+                        scores.crohn += 150;
+                    }
+
+                    // Erosioni/ulcerazioni aftose (tipiche Crohn)
+                    if (f.erosioni_ulcerazioni === 'presente') {
+                        scores.crohn += 50;
+                    }
+
+                    // Iperplasia linfoide (Crohn ileale)
+                    if (f.iperplasia_linfoide === 'presente') {
+                        scores.crohn += 40;
+                    }
+
+                    // Atrofia villi (cronicità)
+                    if (f.atrofia_villi === 'marcata') {
+                        scores.crohn += 30;
+                    } else if (f.atrofia_villi === 'moderata') {
+                        scores.crohn += 15;
+                    } else if (f.atrofia_villi === 'lieve') {
+                        scores.crohn += 5;
+                    }
+
+                    // Neutrofili lamina propria (attività, può essere backwash UC - raro)
+                    if (f.neutrofili_lamina_propria === 'marcata') {
+                        scores.crohn += 20;
+                        scores.uc += 10; // Backwash ileitis possibile
+                    } else if (f.neutrofili_lamina_propria === 'moderata') {
+                        scores.crohn += 10;
+                        scores.uc += 5;
+                    } else if (f.neutrofili_lamina_propria === 'lieve') {
+                        scores.crohn += 5;
+                    }
+
+                    // Edema lamina propria (attività)
+                    if (f.edema_lamina_propria === 'presente') {
+                        scores.crohn += 15;
+                    }
+
+                    // Plasmacellule aumentate (cronicità)
+                    if (f.plasmacellule_aumentate === 'presente') {
+                        scores.crohn += 15;
+                    }
+
+                    // Fibrosi sottomucosa
+                    if (f.fibrosi_sottomucosa === 'marcata') {
+                        scores.crohn += 25;
+                    } else if (f.fibrosi_sottomucosa === 'moderata') {
+                        scores.crohn += 15;
+                    } else if (f.fibrosi_sottomucosa === 'lieve') {
+                        scores.crohn += 5;
+                    }
+
+                } else {
+                    // ==================== SCORING COLON (e pouch/anastomosi) ====================
+                    // Granulomi
+                    if (f.granulomi_epitelioidi === 'presente') {
+                        scores.crohn += 100;
+                    }
+
+                    // Neutrofili intraepiteliali
+                    if (f.neutrofili_epitelio === 'marcata') {
+                        scores.uc += 40;
+                        scores.crohn += 20;
+                    } else if (f.neutrofili_epitelio === 'moderata') {
+                        scores.uc += 25;
+                        scores.crohn += 15;
+                    } else if (f.neutrofili_epitelio === 'lieve') {
+                        scores.uc += 15;
+                        scores.crohn += 10;
+                    }
+
+                    // Ascessi criptici
+                    if (f.ascessi_criptici === 'presente') {
+                        scores.uc += 30;
+                        scores.crohn += 15;
+                    }
+
+                    // Plasmacellule basale
+                    if (f.plasmacellule_basale === 'presente') {
+                        scores.uc += 25;
+                        scores.crohn += 10;
+                    }
+
+                    // Distorsione architettura
+                    if (f.distorsione_architettura === 'presente') {
+                        scores.uc += 20;
+                        scores.crohn += 15;
+                    }
+
+                    // Metaplasia Paneth
+                    if (f.metaplasia_paneth === 'presente') {
+                        scores.uc += 15;
+                    }
+
+                    // Ulcerazione
+                    if (f.ulcerazione === 'presente') {
+                        scores.crohn += 15;
+                        scores.uc += 10;
+                    }
+
+                    // Fibrosi sottomucosa
+                    if (f.fibrosi_sottomucosa === 'marcata') {
+                        scores.crohn += 25;
+                        scores.uc += 10;
+                    } else if (f.fibrosi_sottomucosa === 'moderata') {
+                        scores.crohn += 15;
+                        scores.uc += 5;
+                    }
+                }
+            });
+
+            // IHC - CD68
+            if (ihcData.cd68_pattern === 'cluster_transmurale') {
+                scores.crohn += 35;
+            } else if (ihcData.cd68_pattern === 'diffuso_mucosa') {
+                scores.uc += 20;
+                scores.crohn += 10;
+            }
+
+            // p53 SEPARATO da scoring IBD
+            const dysplasiaRisk = 
+                ihcData.p53_pattern === 'overexpression' || 
+                ihcData.p53_pattern === 'null';
+
+            // IBDU scoring
+            if (scores.crohn < 30 && scores.uc < 30) {
+                scores.ibdu = 100;
+            } else {
+                scores.ibdu = Math.max(0, 100 - scores.crohn - scores.uc);
+            }
+
+            // Normalizzazione
+            const total = scores.crohn + scores.uc + scores.ibdu;
+            if (total > 0) {
+                scores.crohn = Math.round((scores.crohn / total) * 100);
+                scores.uc = Math.round((scores.uc / total) * 100);
+                scores.ibdu = Math.round((scores.ibdu / total) * 100);
+            }
+
+            return { 
+                scores, 
+                dysplasiaRisk
+            };
+        };
+
+        // ==================== VALIDAZIONE CLINICA ====================
+        const validateClinicalLogic = () => {
+            const warnings = [];
+
+            specimens.forEach((specimen, index) => {
+                const f = specimen.findings;
+                const siteType = specimen.siteType || 'colon';
+
+                // 1. Granulomi senza alterazioni croniche
+                if (f.granulomi_epitelioidi === 'presente') {
+                    if (siteType === 'ileum') {
+                        // ILEO: granulomi senza atrofia villi o plasmacellule aumentate
+                        if (f.atrofia_villi === 'assente' && f.plasmacellule_aumentate === 'assente') {
+                            warnings.push({
+                                type: 'DIAGNOSTIC_ALERT',
+                                site: specimen.site,
+                                message: `🔍 ${specimen.site.toUpperCase()} (ILEO): Granulomi epitelioidi SENZA alterazioni croniche`,
+                                severity: 'high',
+                                suggestion: 'Nota clinica: Pattern insolito per Crohn ileale. Considerare diagnosi alternative (tubercolosi, Yersinia enterocolitica, sarcoidosi, Crohn in fase precoce acuta)'
+                            });
+                        }
+                    } else {
+                        // COLON: granulomi senza distorsione o plasmacellule basale
+                        if (f.distorsione_architettura === 'assente' && f.plasmacellule_basale === 'assente') {
+                            warnings.push({
+                                type: 'DIAGNOSTIC_ALERT',
+                                site: specimen.site,
+                                message: `🔍 ${specimen.site.toUpperCase()}: Granulomi epitelioidi SENZA alterazioni croniche`,
+                                severity: 'high',
+                                suggestion: 'Nota clinica: Pattern insolito per IBD. Considerare diagnosi alternative (tubercolosi, sarcoidosi, infezioni granulomatose, Crohn in fase precoce)'
+                            });
+                        }
+                    }
+                }
+            });
+
+            // 2. p53 aberrante con campionamento limitato
+            const dysplasiaRisk = 
+                ihcData.p53_pattern === 'overexpression' || 
+                ihcData.p53_pattern === 'null';
+            
+            if (dysplasiaRisk && specimens.length < 2) {
+                warnings.push({
+                    type: 'SAMPLING_NOTE',
+                    message: '🔍 p53 aberrante rilevato su campionamento limitato',
+                    severity: 'medium',
+                    suggestion: 'Nota metodologica: p53 aberrante in singola biopsia. Considerare biopsie multiple per valutare estensione ed escludere focality della displasia'
+                });
+            }
+
+            // 3. Nancy Index alto senza ulcerazione
+            const nancy = calculateNancyIndex();
+            if (nancy.applicable && nancy.score >= 3 && !nancy.details.hasUlceration) {
+                warnings.push({
+                    type: 'NANCY_NOTE',
+                    message: '🔍 Nancy Index elevato (≥3) senza ulcerazione documentata',
+                    severity: 'low',
+                    suggestion: 'Nota interpretativa: Score Nancy alto guidato da neutrofili/ascessi. Possibile sottostima endoscopica ulcerazioni o ulcerazioni microscopiche non campionate'
+                });
+            }
+
+            // 4. Pattern topografico Crohn-like confermato
+            const topoPattern = analyzeTopographicPattern();
+            if (topoPattern.rectumSampled && !topoPattern.rectumInvolved && 
+                topoPattern.ileumInvolved) {
+                warnings.push({
+                    type: 'TOPOGRAPHIC_NOTE',
+                    message: '🔍 Pattern topografico: Retto risparmiato con ileo terminale coinvolto',
+                    severity: 'low',
+                    suggestion: 'Nota diagnostica: Pattern suggestivo per Crohn Disease. Considerare anche: IBDU, UC con backwash ileitis (raro), UC trattata con remissione rettale'
+                });
+            }
+
+            return warnings;
+        };
+
+        // ==================== GENERATE REPORT ====================
+        const generateReport = () => {
+            const scoring = calculateScoring();
+            const nancy = calculateNancyIndex();
+            const topoPattern = analyzeTopographicPattern();
+            const validations = validateClinicalLogic();
+
+            // FIX v2.3.2: Rilevazione granulomi sospetti per warning
+            const suspiciousGranulomas = specimens.filter(s => 
+                s.findings.granulomi_epitelioidi === 'sospetti'
+            ).map(s => s.site);
+
+            const diagnoses = specimens.map(s => {
+                const findings = [];
+                if (s.findings.granulomi_epitelioidi === 'presente') findings.push('granulomi epitelioidi');
+                if (s.findings.neutrofili_epitelio !== 'assente') findings.push('neutrofili intraepiteliali');
+                if (s.findings.ascessi_criptici === 'presente') findings.push('ascessi criptici');
+                if (s.findings.distorsione_architettura === 'presente') findings.push('distorsione architettura');
+                if (s.findings.ulcerazione === 'presente') findings.push('ulcerazione');
+                if (s.findings.fissurazioni === 'presente') findings.push('fissurazioni');
+
+                let diagnosis = 'Colite cronica';
+                if (findings.length > 0) diagnosis += ' attiva';
+
+                return {
+                    site: s.site,
+                    diagnosis,
+                    findings
+                };
+            });
+
+            return {
+                specimens,
+                diagnoses,
+                scoring,
+                nancy,
+                topoPattern,
+                suspiciousGranulomas,  // NUOVO
+                validations,  // NUOVO v2.3.5
+                ihcData,
+                metadata: {
+                    version: APP_VERSION,
+                    date: new Date().toISOString(),
+                    hasGranulomas: specimens.some(s => s.findings.granulomi_epitelioidi === 'presente'),
+                    hasNancy: shouldShowNancy()
+                }
+            };
+        };
+
+        // ==================== COMPONENTS ====================
+
+        // Tab Navigation
+        const TabNavigation = ({ active, onChange }) => {
+            const tabs = [
+                { id: 'campioni', label: '📋 Campioni' },
+                { id: 'ihc', label: '🔬 IHC' },
+                { id: 'referto', label: '📄 Referto' }
+            ];
+
+            return `
+                <div class="flex gap-2 mb-6 border-b no-print">
+                    ${tabs.map(tab => `
+                        <button
+                            onclick="switchTab('${tab.id}')"
+                            class="px-6 py-3 font-semibold rounded-t-lg transition-colors ${
+                                active === tab.id ? 'tab-active' : 'bg-gray-200 hover:bg-gray-300'
+                            }"
+                        >
+                            ${tab.label}
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+        };
+
+        // Specimen Form
+        const SpecimenForm = () => {
+            const sites = [
+                'ileo', 'cieco', 'ascendente', 'trasverso', 
+                'discendente', 'sigma', 'retto', 'pouch', 'anastomosi'
+            ];
+
+            // Findings per COLON, POUCH, ANASTOMOSI
+            // NOTA: Pouch (IPAA) e anastomosi post-chirurgiche usano criteri "colon-like"
+            // Razionale: mucosa di tipo colico, anche se in configurazione post-operatoria
+            const colonFindings = {
+                granulomi_epitelioidi: ['assente', 'sospetti', 'presente'],
+                neutrofili_epitelio: ['assente', 'lieve', 'moderata', 'marcata'],
+                ascessi_criptici: ['assente', 'presente'],
+                plasmacellule_basale: ['assente', 'presente'],
+                distorsione_architettura: ['assente', 'presente'],
+                metaplasia_paneth: ['assente', 'presente'],
+                ulcerazione: ['assente', 'presente'],
+                fibrosi_sottomucosa: ['assente', 'lieve', 'moderata', 'marcata']
+            };
+
+            // Findings per ILEO TERMINALE
+            const ileumFindings = {
+                granulomi_epitelioidi: ['assente', 'sospetti', 'presente'],
+                neutrofili_lamina_propria: ['assente', 'lieve', 'moderata', 'marcata'],
+                erosioni_ulcerazioni: ['assente', 'presente'],
+                iperplasia_linfoide: ['assente', 'presente'],
+                edema_lamina_propria: ['assente', 'presente'],
+                atrofia_villi: ['assente', 'lieve', 'moderata', 'marcata'],
+                plasmacellule_aumentate: ['assente', 'presente'],
+                fibrosi_sottomucosa: ['assente', 'lieve', 'moderata', 'marcata']
+            };
+
+            // Funzione per label leggibili
+            const getLabel = (key) => {
+                const labels = {
+                    'granulomi_epitelioidi': 'Granulomi Epitelioidi',
+                    'neutrofili_epitelio': 'Neutrofili Intraepiteliali',
+                    'neutrofili_lamina_propria': 'Neutrofili Lamina Propria',
+                    'erosioni_ulcerazioni': 'Erosioni/Ulcerazioni Aftose',
+                    'iperplasia_linfoide': 'Iperplasia Linfoide',
+                    'edema_lamina_propria': 'Edema Lamina Propria',
+                    'atrofia_villi': 'Atrofia Villi',
+                    'plasmacellule_aumentate': 'Plasmacellule Aumentate',
+                    'ascessi_criptici': 'Ascessi Criptici',
+                    'plasmacellule_basale': 'Plasmacellule Basale',
+                    'distorsione_architettura': 'Distorsione Architettura',
+                    'metaplasia_paneth': 'Metaplasia Paneth',
+                    'ulcerazione': 'Ulcerazione',
+                    'fibrosi_sottomucosa': 'Fibrosi Sottomucosa'
+                };
+                return labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            };
+
+            // Rendering findings basato su sede selezionata
+            const renderFindings = (site) => {
+                const isIleum = site === 'ileo';
+                const findings = isIleum ? ileumFindings : colonFindings;
+                
+                return Object.entries(findings).map(([key, values]) => {
+                    const label = getLabel(key);
+                    const options = values.map(v => 
+                        '<option value="' + v + '">' + v.charAt(0).toUpperCase() + v.slice(1) + '</option>'
+                    ).join('');
+                    
+                    return '<div>' +
+                        '<label class="block text-sm font-semibold mb-2">' + label + ':</label>' +
+                        '<select id="finding-' + key + '" class="w-full p-2 border rounded">' +
+                        options +
+                        '</select>' +
+                        '</div>';
+                }).join('');
+            };
+
+            return `
+                <div class="bg-blue-50 rounded-lg p-6 mb-6">
+                    <h3 class="text-xl font-bold mb-4">Aggiungi Campione</h3>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold mb-2">Sede:</label>
+                        <select id="site-select" onchange="updateFormSite(this.value)" class="w-full p-2 border rounded">
+                            ${sites.map(s => '<option value="' + s + '"' + (s === currentSite ? ' selected' : '') + '>' + s.charAt(0).toUpperCase() + s.slice(1) + '</option>').join('')}
+                        </select>
+                        <p class="text-xs text-gray-600 mt-1">
+                            ${currentSite === 'ileo' 
+                                ? '🔬 Criteri ILEO: erosioni aftose, atrofia villi, iperplasia linfoide' 
+                                : currentSite === 'pouch' || currentSite === 'anastomosi'
+                                ? '🔬 Criteri COLON-LIKE: pouch/anastomosi valutati con criteri colon (cripte)'
+                                : '🔬 Criteri COLON: ascessi criptici, distorsione architettura, plasmacellule basale'
+                            }
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        ${renderFindings(currentSite)}
+                    </div>
+
+                    <button 
+                        onclick="addSpecimen()"
+                        class="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                    >
+                        + Aggiungi Campione
+                    </button>
+                </div>
+            `;
+        };
+
+        // Specimen List
+        const SpecimenList = () => {
+            if (specimens.length === 0) {
+                return `
+                    <div class="text-center py-8 text-gray-500">
+                        <p>Nessun campione inserito</p>
+                    </div>
+                `;
+            }
+
+            // Helper per label leggibili
+            const getLabel = (key) => {
+                const labels = {
+                    'granulomi_epitelioidi': 'Granulomi',
+                    'neutrofili_epitelio': 'Neutrofili (epitelio)',
+                    'neutrofili_lamina_propria': 'Neutrofili (lamina propria)',
+                    'erosioni_ulcerazioni': 'Erosioni/Ulcerazioni',
+                    'iperplasia_linfoide': 'Iperplasia linfoide',
+                    'edema_lamina_propria': 'Edema LP',
+                    'atrofia_villi': 'Atrofia villi',
+                    'plasmacellule_aumentate': 'Plasmacellule',
+                    'ascessi_criptici': 'Ascessi criptici',
+                    'plasmacellule_basale': 'Plasmacellule basale',
+                    'distorsione_architettura': 'Distorsione arch.',
+                    'metaplasia_paneth': 'Metaplasia Paneth',
+                    'ulcerazione': 'Ulcerazione',
+                    'fibrosi_sottomucosa': 'Fibrosi'
+                };
+                return labels[key] || key;
+            };
+
+            return `
+                <div class="space-y-4">
+                    ${specimens.map((spec, idx) => `
+                        <div class="bg-white border-2 border-gray-300 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <h4 class="font-bold text-lg capitalize">${spec.site}</h4>
+                                    <span class="text-xs text-gray-600">
+                                        ${spec.siteType === 'ileum' ? '🔬 Criteri ileo' : '🔬 Criteri colon'}
+                                    </span>
+                                </div>
+                                <button 
+                                    onclick="removeSpecimen(${idx})"
+                                    class="text-red-600 hover:text-red-800 font-bold"
+                                >
+                                    ✕ Rimuovi
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-sm">
+                                ${Object.entries(spec.findings)
+                                    .filter(([k, v]) => v !== 'assente')
+                                    .map(([k, v]) => `
+                                        <div class="bg-gray-50 p-2 rounded">
+                                            <span class="font-semibold">${getLabel(k)}:</span>
+                                            <span class="ml-1">${v}</span>
+                                        </div>
+                                    `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        };
+
+        // IHC Panel
+        const IHCPanel = () => {
+            return `
+                <div class="bg-purple-50 rounded-lg p-6">
+                    <h3 class="text-xl font-bold mb-4">Immunoistochimica</h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">
+                                CD68 Pattern (distribuzione macrofagi):
+                            </label>
+                            <select 
+                                id="cd68-pattern" 
+                                onchange="updateIHC('cd68_pattern', this.value)"
+                                class="w-full p-2 border rounded"
+                            >
+                                <option value="assente" ${ihcData.cd68_pattern === 'assente' ? 'selected' : ''}>
+                                    Non eseguito
+                                </option>
+                                <option value="cluster_transmurale" ${ihcData.cd68_pattern === 'cluster_transmurale' ? 'selected' : ''}>
+                                    Cluster transmurale (Crohn-like)
+                                </option>
+                                <option value="diffuso_mucosa" ${ihcData.cd68_pattern === 'diffuso_mucosa' ? 'selected' : ''}>
+                                    Diffuso mucosa (UC-like)
+                                </option>
+                            </select>
+                            <p class="text-xs text-gray-600 mt-1">
+                                Cluster transmurale: aggregati macrofagici in tonaca propria profonda/sottomucosa (suggestivo Crohn)
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">
+                                p53 Pattern:
+                            </label>
+                            <select 
+                                id="p53-pattern" 
+                                onchange="updateIHC('p53_pattern', this.value)"
+                                class="w-full p-2 border rounded"
+                            >
+                                <option value="non_eseguito" ${ihcData.p53_pattern === 'non_eseguito' ? 'selected' : ''}>
+                                    Non eseguito
+                                </option>
+                                <option value="wild_type" ${ihcData.p53_pattern === 'wild_type' ? 'selected' : ''}>
+                                    Wild-type (pattern normale)
+                                </option>
+                                <option value="overexpression" ${ihcData.p53_pattern === 'overexpression' ? 'selected' : ''}>
+                                    Overexpression (mutazione missense)
+                                </option>
+                                <option value="null" ${ihcData.p53_pattern === 'null' ? 'selected' : ''}>
+                                    Null/Complete loss (mutazione nonsense)
+                                </option>
+                            </select>
+                            <p class="text-xs text-red-600 mt-1 font-semibold">
+                                ⚠️ Pattern aberranti (overexpression/null) = ALTO RISCHIO DISPLASIA
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        // NUOVO v2.3.2: Warning Granulomi Sospetti
+        const SuspiciousGranulomasWarning = ({ sites }) => {
+            if (!sites || sites.length === 0) return '';
+            
+            return `
+                <div class="bg-orange-50 border-2 border-orange-400 rounded-lg p-4 mb-4">
+                    <h4 class="font-bold text-lg text-orange-900 mb-3 flex items-center gap-2">
+                        <span class="text-xl">⚠️</span>
+                        <span>Granulomi Epitelioidi "Sospetti"</span>
+                    </h4>
+                    
+                    <div class="bg-white bg-opacity-60 rounded p-3 mb-3">
+                        <p class="text-sm font-semibold text-orange-900 mb-2">
+                            Aggregati epitelioidi sospetti rilevati in: ${sites.map(s => s.toUpperCase()).join(', ')}
+                        </p>
+                        <p class="text-sm text-orange-800">
+                            <strong>Interpretazione cauta raccomandata.</strong> Possibili diagnosi differenziali:
+                        </p>
+                        <ul class="list-disc ml-6 text-sm text-orange-800 mt-2 space-y-1">
+                            <li>Artefatti da manipolazione/schiacciamento biopsia</li>
+                            <li>Microaggregati istiocitari reattivi (non granulomi veri)</li>
+                            <li>Follicolite linfoide frammentata</li>
+                            <li>Detriti cellulari/fibrina organizzata</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-yellow-50 border border-yellow-400 rounded p-3">
+                        <p class="text-xs text-yellow-900 font-semibold mb-1">
+                            📋 Nota metodologica:
+                        </p>
+                        <p class="text-xs text-yellow-800">
+                            I granulomi "sospetti" <strong>NON sono pesati nello scoring</strong> per evitare 
+                            sovradiagnosi di Crohn in presenza di reperti ambigui. Conferma su biopsia 
+                            profonda/multipla consigliata prima di diagnosi definitiva.
+                        </p>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Topographic Pattern Display
+        const TopographicPatternDisplay = ({ pattern }) => {
+            if (!pattern) return '';
+            
+            const getWarningColor = () => {
+                if (!pattern.warning) return 'bg-gray-50 border-gray-300';
+                if (pattern.warning.includes('UC-like')) return 'bg-blue-50 border-blue-400';
+                if (pattern.warning.includes('Crohn-like')) return 'bg-purple-50 border-purple-400';
+                return 'bg-yellow-50 border-yellow-400';
+            };
+            
+            return `
+                <div class="${getWarningColor()} border-2 rounded-lg p-4 mb-4">
+                    <h4 class="font-bold text-lg mb-3 flex items-center gap-2">
+                        <span class="text-xl">🗺️</span>
+                        <span>Pattern Topografico di Distribuzione</span>
+                    </h4>
+                    
+                    ${pattern.warning ? `
+                        <div class="mb-3 p-3 bg-white bg-opacity-60 rounded">
+                            <p class="text-sm font-semibold">${pattern.warning}</p>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                                pattern.rectumInvolved ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-600'
+                            }">
+                                ${pattern.rectumInvolved ? '✓' : '✗'}
+                            </span>
+                            <span>Retto coinvolto</span>
+                        </div>
+                        
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                                pattern.ileumInvolved ? 'bg-red-500 text-white' : 'bg-gray-300 text-gray-600'
+                            }">
+                                ${pattern.ileumInvolved ? '✓' : '✗'}
+                            </span>
+                            <span>Ileo coinvolto</span>
+                        </div>
+                        
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                                pattern.skipLesions ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+                            }">
+                                ${pattern.skipLesions ? '✓' : '✗'}
+                            </span>
+                            <span>Skip lesions</span>
+                        </div>
+                        
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-600">Continuità:</span>
+                            <span class="text-xs font-bold">${pattern.continuity}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 pt-3 border-t border-gray-300">
+                        <p class="text-xs text-gray-600">
+                            <strong>Nota:</strong> Il pattern topografico è indicativo (sensibilità 60-80%). 
+                            La diagnosi richiede integrazione con morfologia, IHC e clinica.
+                        </p>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Displasia Risk Display
+        const DysplasiaRiskDisplay = ({ scoring, ihcData }) => {
+            if (!scoring.dysplasiaRisk) return '';
+            
+            return `
+                <div class="bg-red-50 border-2 border-red-500 rounded-lg p-5 mb-6 no-print">
+                    <h4 class="font-bold text-lg text-red-900 mb-3 flex items-center gap-2">
+                        <span class="text-2xl">🚨</span>
+                        <span>Warning Displasia (p53 aberrante)</span>
+                    </h4>
+                    
+                    <div class="space-y-3">
+                        <div class="bg-white bg-opacity-50 rounded p-3">
+                            <p class="text-sm text-red-800 font-semibold mb-2">
+                                Pattern p53 aberrante (${ihcData.p53_pattern}): ALTO RISCHIO DISPLASIA
+                            </p>
+                            <p class="text-sm text-red-700">
+                                Valutazione morfologica attenta per displasia low-grade (LGD) o 
+                                high-grade (HGD) è <strong>obbligatoria</strong>.
+                            </p>
+                        </div>
+                        
+                        <div class="bg-yellow-50 border border-yellow-400 rounded p-3">
+                            <p class="text-xs text-yellow-900 font-semibold mb-1">
+                                ⚠️ Importante:
+                            </p>
+                            <p class="text-xs text-yellow-800">
+                                p53 aberrante è marker di <strong>DISPLASIA</strong>, non di tipo di IBD.
+                                Questa informazione <strong>NON</strong> influenza lo scoring Crohn vs UC.
+                            </p>
+                        </div>
+                        
+                        <div class="text-xs text-gray-600 space-y-1">
+                            <p><strong>Pattern p53 aberranti:</strong></p>
+                            <ul class="ml-4 list-disc space-y-1">
+                                <li>
+                                    <strong>Overexpression</strong>: Mutazione missense, accumulo nucleare 
+                                    diffuso e intenso (&gt;60% cellule epiteliali)
+                                </li>
+                                <li>
+                                    <strong>Null/Complete loss</strong>: Mutazione nonsense/frameshift, 
+                                    assenza completa di espressione nucleare
+                                </li>
+                            </ul>
+                            <p class="mt-2 italic">
+                                Ref: Loughrey MB et al. Histopathology 2020; 77:3-15.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Nancy Index Display
+        const NancyIndexDisplay = ({ nancy }) => {
+            if (!nancy || !nancy.applicable) return '';
+
+            return `
+                <div class="bg-indigo-50 border-2 border-indigo-400 rounded-lg p-4 mb-4">
+                    <h4 class="font-bold text-lg mb-3">Nancy Histological Index</h4>
+                    
+                    <div class="mb-3 bg-white bg-opacity-60 rounded p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-semibold">Score:</span>
+                            <span class="text-2xl font-bold text-indigo-700">${nancy.score}/4</span>
+                        </div>
+                        <p class="text-sm font-semibold text-indigo-900">
+                            ${nancy.interpretation.label}
+                        </p>
+                        <p class="text-xs text-gray-700 mt-1">
+                            ${nancy.interpretation.description}
+                        </p>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-300 rounded p-3 text-xs">
+                        <p class="font-semibold mb-1">Prognosi (Battat 2019):</p>
+                        <p class="text-gray-700">${nancy.interpretation.prognosis}</p>
+                    </div>
+
+                    <div class="mt-3 text-xs text-gray-600">
+                        <strong>Dettagli:</strong> 
+                        Ulcerazione: ${nancy.details.hasUlceration ? 'Sì' : 'No'} | 
+                        Ascessi: ${nancy.details.hasCryptAbscesses ? 'Sì' : 'No'} | 
+                        Neutrofili: ${nancy.details.neutrophilSeverity}
+                    </div>
+                </div>
+            `;
+        };
+
+        // NUOVO v2.3.5: Clinical Validation Panel
+        const ValidationPanel = ({ warnings }) => {
+            if (!warnings || warnings.length === 0) return '';
+            
+            const highSeverity = warnings.filter(w => w.severity === 'high');
+            const otherWarnings = warnings.filter(w => w.severity !== 'high');
+            
+            return `
+                ${highSeverity.length > 0 ? `
+                    <div class="bg-orange-50 border-2 border-orange-500 rounded-lg p-5 mb-4">
+                        <h4 class="font-bold text-lg text-orange-900 mb-3 flex items-center gap-2">
+                            <span class="text-2xl">🔍</span>
+                            <span>Note Cliniche Importanti (${highSeverity.length})</span>
+                        </h4>
+                        ${highSeverity.map(w => `
+                            <div class="mb-3 p-3 bg-white rounded border-l-4 border-orange-500">
+                                <p class="font-semibold text-orange-900 mb-1">${w.message}</p>
+                                <p class="text-sm text-orange-800 mt-2">${w.suggestion}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+
+                ${otherWarnings.length > 0 ? `
+                    <div class="bg-blue-50 border-2 border-blue-400 rounded-lg p-4 mb-4">
+                        <h4 class="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                            <span class="text-xl">💡</span>
+                            <span>Note Tecniche e Metodologiche (${otherWarnings.length})</span>
+                        </h4>
+                        ${otherWarnings.map(w => `
+                            <div class="mb-2 p-3 bg-white bg-opacity-60 rounded">
+                                <p class="text-sm font-semibold text-blue-900">${w.message}</p>
+                                <p class="text-xs text-blue-800 mt-1">${w.suggestion}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            `;
+        };
+
+        // Confidence Bar
+        const ConfidenceBar = ({ crohn, uc, ibdu }) => {
+            const interpretation = interpretScoring({ crohn, uc, ibdu });
+            
+            return `
+                <div class="space-y-4">
+                    <!-- Disclaimer GIGANTE -->
+                    <div class="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4">
+                        <div class="flex items-start gap-3 mb-3">
+                            <span class="text-3xl">⚠️</span>
+                            <div class="flex-1">
+                                <p class="font-bold text-lg text-yellow-900 mb-2">
+                                    ATTENZIONE: Scoring % NON validato clinicamente
+                                </p>
+                                <p class="text-sm text-yellow-800">
+                                    Le percentuali sottostanti sono <strong>PURAMENTE ORIENTATIVE</strong> e 
+                                    non rappresentano misure diagnostiche precise. L'algoritmo è basato su 
+                                    criteri di letteratura ma <strong>NON ha validazione prospettica</strong>. 
+                                    Interpretare sempre nel contesto clinico completo.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Interpretazione Qualitativa -->
+                    <div class="bg-green-50 border-2 border-green-400 rounded-lg p-4">
+                        <h4 class="font-bold text-green-900 mb-3 flex items-center gap-2">
+                            <span class="text-xl">📊</span>
+                            <span>Interpretazione Orientativa</span>
+                        </h4>
+                        <div class="text-lg mb-2">
+                            <span class="font-bold text-green-900">${interpretation.primary}</span>
+                            <span class="text-base text-green-700 ml-3">
+                                (${interpretation.confidence})
+                            </span>
+                        </div>
+                        <p class="text-xs text-green-800">
+                            Basato su: Pattern morfologico, distribuzione topografica, immunoistochimica
+                        </p>
+                    </div>
+                    
+                    <!-- Percentuali Dettagliate -->
+                    <div class="bg-white border border-gray-300 rounded-lg p-4">
+                        <h5 class="text-sm font-semibold text-gray-700 mb-3">
+                            Scoring % Dettagliato (orientativo)
+                        </h5>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-semibold text-sm text-gray-700">Crohn Disease</span>
+                                    <span class="text-sm font-bold text-blue-600">${crohn}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div 
+                                        class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                                        style="width: ${crohn}%"
+                                    ></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-semibold text-sm text-gray-700">Ulcerative Colitis</span>
+                                    <span class="text-sm font-bold text-purple-600">${uc}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div 
+                                        class="bg-purple-600 h-2.5 rounded-full transition-all duration-300" 
+                                        style="width: ${uc}%"
+                                    ></div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-semibold text-sm text-gray-700">IBD Unclassified</span>
+                                    <span class="text-sm font-bold text-amber-600">${ibdu}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div 
+                                        class="bg-amber-600 h-2.5 rounded-full transition-all duration-300" 
+                                        style="width: ${ibdu}%"
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        // Report Tab
+        const ReportTab = () => {
+            if (specimens.length === 0) {
+                return `
+                    <div class="text-center py-12 text-gray-500">
+                        <p class="text-xl mb-2">Nessun dato disponibile</p>
+                        <p>Aggiungi almeno un campione per generare il referto</p>
+                    </div>
+                `;
+            }
+
+            const report = generateReport();
+
+            return `
+                <div class="space-y-6">
+                    <!-- Warning Granulomi Sospetti -->
+                    ${SuspiciousGranulomasWarning({ sites: report.suspiciousGranulomas })}
+
+                    <!-- NUOVO v2.3.5: Clinical Validation -->
+                    ${ValidationPanel({ warnings: report.validations })}
+
+                    <!-- Pattern Topografico -->
+                    ${TopographicPatternDisplay({ pattern: report.topoPattern })}
+
+                    <!-- Warning Displasia -->
+                    ${DysplasiaRiskDisplay({ scoring: report.scoring, ihcData: report.ihcData })}
+
+                    <!-- Nancy Index -->
+                    ${NancyIndexDisplay({ nancy: report.nancy })}
+
+                    <!-- Scoring con Disclaimer -->
+                    ${ConfidenceBar({ 
+                        crohn: report.scoring.scores.crohn,
+                        uc: report.scoring.scores.uc,
+                        ibdu: report.scoring.scores.ibdu
+                    })}
+
+                    <!-- Referto Testuale -->
+                    <div class="bg-white border-2 border-gray-400 rounded-lg p-6 print-friendly">
+                        <h3 class="text-xl font-bold mb-4">REFERTO ISTOLOGICO</h3>
+                        
+                        <!-- Tabella Campioni -->
+                        <div class="mb-4">
+                            <table class="w-full text-sm border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-200">
+                                        <th class="border p-2 text-left">Sede</th>
+                                        <th class="border p-2 text-left">Diagnosi</th>
+                                        <th class="border p-2 text-left">Reperti Principali</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${report.diagnoses.map(d => `
+                                        <tr>
+                                            <td class="border p-2 capitalize font-semibold">${d.site}</td>
+                                            <td class="border p-2">${d.diagnosis}</td>
+                                            <td class="border p-2 text-xs">${d.findings.join(', ') || 'Nessun reperto significativo'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Warning Granulomi Sospetti Testuale -->
+                        ${report.suspiciousGranulomas.length > 0 ? `
+                            <h4 class="font-semibold mt-4 mb-2 text-orange-700">⚠️ GRANULOMI SOSPETTI:</h4>
+                            <p class="text-sm mb-2 text-orange-800">
+                                Aggregati epitelioidi sospetti in: ${report.suspiciousGranulomas.map(s => s.toUpperCase()).join(', ')}.
+                            </p>
+                            <p class="text-sm mb-2 text-orange-700">
+                                Interpretazione cauta. Diagnosi differenziali: artefatti, microaggregati reattivi, 
+                                follicolite frammentata. <strong>Non pesati nello scoring</strong> per evitare overdiagnosi. 
+                                Conferma su biopsia profonda/multipla consigliata.
+                            </p>
+                        ` : ''}
+
+                        <!-- Pattern Topografico Testuale -->
+                        ${report.topoPattern && report.topoPattern.warning ? `
+                            <h4 class="font-semibold mt-4 mb-2">DISTRIBUZIONE TOPOGRAFICA:</h4>
+                            <p class="text-sm mb-2">
+                                ${report.topoPattern.warning}
+                            </p>
+                            <p class="text-xs text-gray-600 mb-2">
+                                Retto: ${report.topoPattern.rectumInvolved ? 'Coinvolto' : 'Non coinvolto'}${
+                                    report.topoPattern.rectumSampled ? '' : ' (non campionato)'
+                                } | 
+                                Ileo: ${report.topoPattern.ileumInvolved ? 'Coinvolto' : 'Non coinvolto'}${
+                                    report.topoPattern.ileumSampled ? '' : ' (non campionato)'
+                                } | 
+                                Distribuzione: ${report.topoPattern.continuity}
+                            </p>
+                        ` : ''}
+
+                        <!-- Warning Displasia Testuale -->
+                        ${report.scoring.dysplasiaRisk ? `
+                            <h4 class="font-semibold mt-4 mb-2 text-red-700">⚠️ WARNING DISPLASIA:</h4>
+                            <p class="text-sm mb-2 text-red-800 font-semibold">
+                                Pattern p53 aberrante (${report.ihcData.p53_pattern}): ALTO RISCHIO DISPLASIA.
+                            </p>
+                            <p class="text-sm mb-2 text-red-700">
+                                Valutazione morfologica attenta per LGD/HGD obbligatoria. 
+                                p53 è marker di displasia, NON di tipo di IBD.
+                            </p>
+                        ` : ''}
+
+                        <!-- Scoring Orientativo -->
+                        <h4 class="font-semibold mt-4 mb-2">SCORING ORIENTATIVO (non validato):</h4>
+                        <p class="text-sm mb-2">
+                            Pattern morfologico: <strong>${interpretScoring(report.scoring.scores).primary}</strong> 
+                            (${interpretScoring(report.scoring.scores).confidence})
+                        </p>
+                        ${report.topoPattern.warning ? `
+                            <p class="text-sm mb-2">
+                                Distribuzione topografica: ${report.topoPattern.warning.includes('UC-like') ? 'UC-like' : 
+                                    report.topoPattern.warning.includes('Crohn-like') ? 'Crohn-like' : 'Atipica'}
+                            </p>
+                        ` : ''}
+                        ${report.nancy.applicable ? `
+                            <p class="text-sm mb-2">
+                                Nancy Histological Index: ${report.nancy.score}/4 (${report.nancy.interpretation.label})
+                            </p>
+                        ` : '<p class="text-sm mb-2">Nancy Index: Non applicabile (pattern morfologico Crohn)</p>'}
+
+                        <!-- Disclaimer Finale -->
+                        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded">
+                            <p class="text-xs text-gray-700">
+                                <strong>NOTA IMPORTANTE:</strong> Lo scoring % è supporto decisionale orientativo, 
+                                NON diagnosi definitiva. La diagnosi richiede integrazione con contesto clinico, 
+                                endoscopia, sierologia e follow-up. Algoritmo basato su letteratura ma senza 
+                                validazione prospettica.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Azioni -->
+                    <div class="flex gap-4 no-print">
+                        <button 
+                            onclick="window.print()"
+                            class="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700"
+                        >
+                            🖨️ Stampa/PDF
+                        </button>
+                        <button 
+                            onclick="saveData()"
+                            class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700"
+                        >
+                            💾 Salva Dati
+                        </button>
+                        <button 
+                            onclick="clearData()"
+                            class="bg-red-600 text-white px-6 py-3 rounded hover:bg-red-700"
+                        >
+                            🗑️ Reset
+                        </button>
+                    </div>
+                </div>
+            `;
+        };
+
+        // ==================== EVENT HANDLERS ====================
+        const switchTab = (tab) => {
+            activeTab = tab;
+            render();
+        };
+
+        const addSpecimen = () => {
+            const site = document.getElementById('site-select').value;
+            const findings = {};
+
+            // Determina quali findings usare in base alla sede
+            const isIleum = (site === 'ileo');
+            
+            const findingKeys = isIleum ? [
+                'granulomi_epitelioidi', 'neutrofili_lamina_propria', 
+                'erosioni_ulcerazioni', 'iperplasia_linfoide',
+                'edema_lamina_propria', 'atrofia_villi', 
+                'plasmacellule_aumentate', 'fibrosi_sottomucosa'
+            ] : [
+                'granulomi_epitelioidi', 'neutrofili_epitelio', 'ascessi_criptici',
+                'plasmacellule_basale', 'distorsione_architettura', 'metaplasia_paneth',
+                'ulcerazione', 'fibrosi_sottomucosa'
+            ];
+
+            findingKeys.forEach(key => {
+                const element = document.getElementById(`finding-${key}`);
+                if (element) {
+                    findings[key] = element.value;
+                }
+            });
+
+            specimens.push({ site, findings, siteType: isIleum ? 'ileum' : 'colon' });
+            saveData();
+            render();
+        };
+
+        const removeSpecimen = (index) => {
+            specimens.splice(index, 1);
+            saveData();
+            render();
+        };
+
+        const updateIHC = (field, value) => {
+            ihcData[field] = value;
+            saveData();
+            render();
+        };
+
+        const clearData = () => {
+            if (confirm('Sei sicuro di voler cancellare tutti i dati?')) {
+                specimens = [];
+                ihcData = { cd68_pattern: 'assente', p53_pattern: 'non_eseguito' };
+                localStorage.removeItem(STORAGE_KEY);
+                render();
+            }
+        };
+
+        const saveData = () => {
+            try {
+                const data = {
+                    version: APP_VERSION,
+                    specimens,
+                    ihcData,
+                    savedAt: new Date().toISOString()
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            } catch (error) {
+                console.error('Error saving data:', error);
+            }
+        };
+
+        const loadData = () => {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    specimens = data.specimens || [];
+                    ihcData = data.ihcData || { cd68_pattern: 'assente', p53_pattern: 'non_eseguito' };
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        };
+
+        // ==================== RENDER ====================
+        const render = () => {
+            const content = document.getElementById('main-content');
+            
+            let tabContent = '';
+            if (activeTab === 'campioni') {
+                tabContent = SpecimenForm() + SpecimenList();
+            } else if (activeTab === 'ihc') {
+                tabContent = IHCPanel();
+            } else if (activeTab === 'referto') {
+                tabContent = ReportTab();
+            }
+
+            content.innerHTML = TabNavigation({ active: activeTab, onChange: switchTab }) + tabContent;
+        };
+
+        // ==================== INIT ====================
+        loadData();
+        checkDisclaimer();
+        render();
     </script>
+
+    <!-- Footer -->
+    <div class="max-w-6xl mx-auto mt-8 text-xs text-gray-600 text-center p-4 bg-gray-100 rounded">
+        <p class="font-semibold mb-2">
+            IBD Diagnostic Tool v2.4.0 Production - STRUMENTO DI SUPPORTO DIAGNOSTICO
+        </p>
+        <p class="mb-1">
+            <strong>DISCLAIMER:</strong> Questo tool fornisce supporto orientativo alla diagnosi 
+            differenziale IBD basato su criteri morfologici, topografici e immunoistochimici 
+            validati in letteratura. Lo scoring % NON è validato prospetticamente.
+        </p>
+        <p class="mb-1">
+            La diagnosi definitiva richiede sempre integrazione con: 
+            <strong>contesto clinico, endoscopia, sierologia, follow-up</strong>.
+        </p>
+        <p class="text-gray-500 text-xs mt-2">
+            Release: Gennaio 2026 | v2.4.0 | 
+            BIOPSIE ENDOSCOPICHE: Ileo dedicato, Nancy solo colon
+        </p>
+    </div>
 </body>
 </html>
