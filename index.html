@@ -112,7 +112,7 @@
                 Versione 2.4.3 | Supporto diagnosi differenziale Inflammatory Bowel Disease
             </p>
             <p class="text-xs text-gray-500 mt-1">
-                v2.4.3: DD Altre coliti | v2.4.2: Diagnosi auto | v2.4.1: CMV | v2.4: Criteri ILEO, Nancy solo colon
+                v2.4.3: Diagnosi veloce + DD Altre coliti + Grado Nancy | v2.4.2: Diagnosi auto | v2.4.1: CMV
             </p>
         </div>
 
@@ -244,8 +244,8 @@
             {
                 codice: 'COLITE_COLLAGENA',
                 emoji: '🔬',
-                label: 'Colite Collagena',
-                testo: 'Colite microscopica, tipo collagena. Banda collagene subepiteliale ispessita (≥10μm). Architettura ghiandolare conservata.',
+                label: 'Colite collagenosica',
+                testo: 'Colite microscopica, tipo collagenosica. Banda collagene subepiteliale ispessita (≥10μm). Architettura ghiandolare conservata.',
                 gruppo: 'altre'
             },
             {
@@ -274,6 +274,13 @@
                 emoji: '💊',
                 label: 'Colite da FANS',
                 testo: 'Colite/enteropatia da FANS. Apoptosi cripte aumentata e/o ulcere a diaframma. Confermare anamnesi farmacologica.',
+                gruppo: 'altre'
+            },
+            {
+                codice: 'SCAD',
+                emoji: '🔘',
+                label: 'SCAD',
+                testo: 'Colite cronica segmentale associata a diverticolosi (SCAD). Flogosi cronica attiva limitata al segmento con diverticoli, retto indenne. Escludere IBD.',
                 gruppo: 'altre'
             }
         ];
@@ -1314,7 +1321,7 @@
                             <div class="bg-purple-50 border border-purple-200 rounded p-2 mb-3 text-xs">
                                 <p class="font-semibold text-purple-900 mb-1">Termine ombrello:</p>
                                 <ul class="text-purple-800 space-y-0.5 ml-2">
-                                    <li>• <strong>Collagena</strong>: banda collagene ≥10μm</li>
+                                    <li>• <strong>Collagenosica</strong>: banda collagene ≥10μm</li>
                                     <li>• <strong>Linfocitica</strong>: IEL ≥20/100, banda normale</li>
                                     <li>• <em>Overlap raro</em>: entrambi i criteri</li>
                                 </ul>
@@ -1327,7 +1334,7 @@
                                         class="w-full p-2 border rounded text-sm"
                                     >
                                         <option value="assente" ${altreColiti.banda_collagene === 'assente' ? 'selected' : ''}>Assente/normale (&lt;7μm)</option>
-                                        <option value="ispessita" ${altreColiti.banda_collagene === 'ispessita' ? 'selected' : ''}>Ispessita (≥10μm) → Collagena</option>
+                                        <option value="ispessita" ${altreColiti.banda_collagene === 'ispessita' ? 'selected' : ''}>Ispessita (≥10μm) → Collagenosica</option>
                                         <option value="marcata" ${altreColiti.banda_collagene === 'marcata' ? 'selected' : ''}>Marcatamente ispessita (&gt;20μm)</option>
                                     </select>
                                 </div>
@@ -1451,13 +1458,13 @@
         const detectAltreColitiPattern = () => {
             const results = [];
             
-            // Colite Collagena
+            // Colite collagenosica
             if (altreColiti.banda_collagene === 'ispessita' || altreColiti.banda_collagene === 'marcata') {
                 results.push({
                     tipo: 'COLITE_COLLAGENA',
                     emoji: '🔬',
-                    diagnosi: 'Colite Collagena',
-                    descrizione: `Banda collagene subepiteliale ${altreColiti.banda_collagene === 'marcata' ? 'marcatamente ispessita (>20μm)' : 'ispessita (≥10μm)'}. Pattern diagnostico per colite collagena.`,
+                    diagnosi: 'Colite collagenosica',
+                    descrizione: `Banda collagene subepiteliale ${altreColiti.banda_collagene === 'marcata' ? 'marcatamente ispessita (>20μm)' : 'ispessita (≥10μm)'}. Pattern diagnostico per colite collagenosica.`,
                     confidence: altreColiti.banda_collagene === 'marcata' ? 'alta' : 'buona',
                     color: 'purple'
                 });
