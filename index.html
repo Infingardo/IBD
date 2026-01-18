@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v2.4.1</title>
+    <title>IBD Diagnostic Tool v2.4.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
@@ -109,10 +109,10 @@
                 IBD Diagnostic Tool
             </h1>
             <p class="text-sm text-gray-600">
-                Versione 2.4.1 | Supporto diagnosi differenziale Inflammatory Bowel Disease
+                Versione 2.4.2 | Supporto diagnosi differenziale Inflammatory Bowel Disease
             </p>
             <p class="text-xs text-gray-500 mt-1">
-                v2.4: Criteri ILEO dedicati, Nancy solo colon | v2.4.1: CMV status
+                v2.4.2: Diagnosi suggerita automatica | v2.4.1: CMV | v2.4: Criteri ILEO dedicati, Nancy solo colon
             </p>
         </div>
 
@@ -138,8 +138,8 @@
 
     <script>
         // ==================== CONFIGURAZIONE ====================
-        const APP_VERSION = '2.4.1';
-        const STORAGE_KEY = 'ibdAppDataV241';
+        const APP_VERSION = '2.4.2';
+        const STORAGE_KEY = 'ibdAppDataV242';
         const DISCLAIMER_KEY = 'ibdDisclaimerAccepted';
 
         // ==================== STATE ====================
@@ -559,12 +559,263 @@
             return warnings;
         };
 
+        // ==================== PATTERN RECOGNITION v2.4.2 ====================
+        const detectDiagnosticPattern = () => {
+            if (specimens.length === 0) {
+                return { pattern: null, diagnosis: null, description: null };
+            }
+
+            const colonOrder = ['cieco', 'ascendente', 'trasverso', 'discendente', 'sigma', 'retto'];
+            const leftColon = ['discendente', 'sigma', 'retto'];
+            const rightColon = ['cieco', 'ascendente', 'trasverso'];
+
+            // Helper: check if specimen has active inflammation
+            const hasActiveInflammation = (spec) => {
+                if (spec.siteType === 'ileum') {
+                    return spec.findings.neutrofili_lamina_propria !== 'assente' ||
+                           spec.findings.erosioni_ulcerazioni === 'presente';
+                } else {
+                    return spec.findings.neutrofili_epitelio !== 'assente' ||
+                           spec.findings.ascessi_criptici === 'presente' ||
+                           spec.findings.ulcerazione === 'presente';
+                }
+            };
+
+            // Helper: check if specimen has chronic changes only (no activity)
+            const hasChronicChangesOnly = (spec) => {
+                if (spec.siteType === 'ileum') {
+                    const hasActivity = spec.findings.neutrofili_lamina_propria !== 'assente' ||
+                                        spec.findings.erosioni_ulcerazioni === 'presente';
+                    const hasChronic = spec.findings.atrofia_villi !== 'assente' ||
+                                       spec.findings.plasmacellule_aumentate === 'presente' ||
+                                       spec.findings.fibrosi_sottomucosa !== 'assente';
+                    return !hasActivity && hasChronic;
+                } else {
+                    const hasActivity = spec.findings.neutrofili_epitelio !== 'assente' ||
+                                        spec.findings.ascessi_criptici === 'presente' ||
+                                        spec.findings.ulcerazione === 'presente';
+                    const hasChronic = spec.findings.distorsione_architettura === 'presente' ||
+                                       spec.findings.plasmacellule_basale === 'presente' ||
+                                       spec.findings.metaplasia_paneth === 'presente' ||
+                                       spec.findings.fibrosi_sottomucosa !== 'assente';
+                    return !hasActivity && hasChronic;
+                }
+            };
+
+            // Helper: check if specimen is completely normal
+            const isNormal = (spec) => {
+                return Object.values(spec.findings).every(v => v === 'assente');
+            };
+
+            // Helper: has granulomas
+            const hasGranulomas = specimens.some(s => s.findings.granulomi_epitelioidi === 'presente');
+
+            // Separate specimens by type
+            const ileumSpecs = specimens.filter(s => s.siteType === 'ileum');
+            const colonSpecs = specimens.filter(s => s.siteType !== 'ileum');
+            
+            const activeColonSpecs = colonSpecs.filter(hasActiveInflammation);
+            const activeIleumSpecs = ileumSpecs.filter(hasActiveInflammation);
+            
+            const activeSites = activeColonSpecs.map(s => s.site);
+            const chronicOnlySpecs = specimens.filter(hasChronicChangesOnly);
+            const normalSpecs = specimens.filter(isNormal);
+
+            // ========== PATTERN DETECTION ==========
+
+            // 1. NORMALE - tutti i campioni normali
+            if (normalSpecs.length === specimens.length) {
+                const sites = specimens.map(s => s.site);
+                const hasIleum = sites.includes('ileo');
+                const hasColon = colonSpecs.length > 0;
+                
+                let mucosaType = 'colica';
+                if (hasIleum && hasColon) mucosaType = 'ileo-colica';
+                else if (hasIleum && !hasColon) mucosaType = 'ileale';
+                
+                return {
+                    pattern: 'NORMALE',
+                    emoji: '🟢',
+                    diagnosis: 'Mucosa nella norma istologica',
+                    description: `Mucosa ${mucosaType} nella norma istologica. Non evidenza di malattia infiammatoria intestinale in atto.`,
+                    color: 'green'
+                };
+            }
+
+            // 2. IBD IN REMISSIONE - solo alterazioni croniche, no attività
+            if (chronicOnlySpecs.length > 0 && 
+                activeColonSpecs.length === 0 && 
+                activeIleumSpecs.length === 0 &&
+                !hasGranulomas) {
+                
+                const chronicSites = chronicOnlySpecs.map(s => s.site.charAt(0).toUpperCase() + s.site.slice(1)).join(', ');
+                
+                return {
+                    pattern: 'IBD_REMISSIONE',
+                    emoji: '🟡',
+                    diagnosis: 'IBD in fase di remissione istologica',
+                    description: `Colite cronica in fase di remissione istologica. Persistono alterazioni architetturali residue (${chronicSites}). Assenza di attività infiammatoria acuta.`,
+                    color: 'yellow'
+                };
+            }
+
+            // 3. ILEITE NAS - solo ileo coinvolto, colon normale
+            if (activeIleumSpecs.length > 0 && 
+                activeColonSpecs.length === 0 &&
+                colonSpecs.every(s => isNormal(s) || hasChronicChangesOnly(s))) {
+                
+                const hasIleumGranulomas = ileumSpecs.some(s => s.findings.granulomi_epitelioidi === 'presente');
+                
+                if (hasIleumGranulomas) {
+                    return {
+                        pattern: 'ILEITE_CROHN',
+                        emoji: '🟠',
+                        diagnosis: 'Ileite cronica granulomatosa',
+                        description: `Ileite cronica attiva granulomatosa, pattern morfologico compatibile con Malattia di Crohn ileale. Mucosa colica esaminata indenne.`,
+                        color: 'orange'
+                    };
+                } else {
+                    return {
+                        pattern: 'ILEITE_NAS',
+                        emoji: '🟠',
+                        diagnosis: 'Ileite cronica attiva NAS',
+                        description: `Ileite cronica attiva. Pattern aspecifico, da correlare con dati clinici ed endoscopici (DD: Crohn, infettiva, ischemica, farmacologica, FANS). Mucosa colica esaminata indenne.`,
+                        color: 'orange'
+                    };
+                }
+            }
+
+            // Skip if granulomas (Crohn-like, don't suggest UC patterns)
+            if (hasGranulomas) {
+                const granulomasSites = specimens
+                    .filter(s => s.findings.granulomi_epitelioidi === 'presente')
+                    .map(s => s.site.charAt(0).toUpperCase() + s.site.slice(1))
+                    .join(', ');
+                
+                return {
+                    pattern: 'CROHN_LIKE',
+                    emoji: '🟣',
+                    diagnosis: 'Pattern Crohn-like (granulomi)',
+                    description: `Colite cronica attiva granulomatosa (${granulomasSites}). Pattern morfologico compatibile con Malattia di Crohn. Escludere: TBC, Yersinia, sarcoidosi.`,
+                    color: 'purple'
+                };
+            }
+
+            // 4. PROCTITE ULCEROSA - solo retto coinvolto
+            if (activeSites.length === 1 && activeSites[0] === 'retto') {
+                const otherColonNormal = colonSpecs
+                    .filter(s => s.site !== 'retto')
+                    .every(s => isNormal(s));
+                const ileumOk = ileumSpecs.every(s => isNormal(s) || !hasActiveInflammation(s));
+                
+                if (otherColonNormal && ileumOk) {
+                    return {
+                        pattern: 'PROCTITE_UC',
+                        emoji: '🔵',
+                        diagnosis: 'Proctite ulcerosa',
+                        description: `Proctite cronica attiva, pattern morfologico compatibile con Colite Ulcerosa limitata al retto (E1 Montreal). Restante mucosa colica esaminata indenne.`,
+                        color: 'blue'
+                    };
+                }
+            }
+
+            // 5. COLITE SINISTRA UC - coinvolgimento da retto a flessura splenica
+            const activeLeftSites = activeSites.filter(s => leftColon.includes(s));
+            const activeRightSites = activeSites.filter(s => rightColon.includes(s));
+            
+            if (activeLeftSites.length > 0 && 
+                activeRightSites.length === 0 &&
+                activeSites.includes('retto')) {
+                
+                const ileumOk = ileumSpecs.every(s => isNormal(s) || !hasActiveInflammation(s));
+                
+                if (ileumOk) {
+                    const extent = activeLeftSites.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
+                    return {
+                        pattern: 'COLITE_SINISTRA_UC',
+                        emoji: '🔵',
+                        diagnosis: 'Colite sinistra (UC)',
+                        description: `Colite cronica attiva con distribuzione sinistra (${extent}), pattern morfologico compatibile con Colite Ulcerosa sinistra (E2 Montreal). Colon destro e ileo indenni.`,
+                        color: 'blue'
+                    };
+                }
+            }
+
+            // 6. PANCOLITE UC - coinvolgimento esteso + retto + continuo + no ileo attivo
+            const colonSitesSampled = colonSpecs.map(s => s.site);
+            const hasRectum = colonSitesSampled.includes('retto');
+            const hasLeftColon = colonSitesSampled.some(s => leftColon.includes(s));
+            const hasRightColon = colonSitesSampled.some(s => rightColon.includes(s));
+            
+            if (activeColonSpecs.length >= 3 && 
+                activeSites.includes('retto') &&
+                hasLeftColon && hasRightColon) {
+                
+                // Check continuity
+                const activeIndices = activeSites
+                    .filter(s => colonOrder.includes(s))
+                    .map(s => colonOrder.indexOf(s))
+                    .sort((a, b) => a - b);
+                
+                let isContinuous = true;
+                for (let i = 1; i < activeIndices.length; i++) {
+                    if (activeIndices[i] - activeIndices[i-1] > 1) {
+                        isContinuous = false;
+                        break;
+                    }
+                }
+                
+                const ileumOk = ileumSpecs.every(s => isNormal(s));
+                const ileumMild = ileumSpecs.some(s => hasActiveInflammation(s) && 
+                    (s.findings.neutrofili_lamina_propria === 'lieve'));
+                
+                if (isContinuous && ileumOk) {
+                    return {
+                        pattern: 'PANCOLITE_UC',
+                        emoji: '🔵',
+                        diagnosis: 'Pancolite (UC)',
+                        description: `Pancolite cronica attiva con distribuzione continua, pattern morfologico compatibile con Colite Ulcerosa estesa (E3 Montreal). Ileo terminale indenne.`,
+                        color: 'blue'
+                    };
+                }
+                
+                // 7. BACKWASH ILEITIS
+                if (isContinuous && ileumMild) {
+                    return {
+                        pattern: 'BACKWASH_ILEITIS',
+                        emoji: '🔵',
+                        diagnosis: 'Pancolite con backwash ileitis',
+                        description: `Pancolite cronica attiva con distribuzione continua e lieve ileite associata (backwash ileitis). Pattern morfologico compatibile con Colite Ulcerosa estesa.`,
+                        color: 'blue'
+                    };
+                }
+            }
+
+            // 8. DEFAULT - Colite cronica attiva aspecifica
+            if (activeColonSpecs.length > 0) {
+                const activeSitesStr = activeSites
+                    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+                    .join(', ');
+                
+                return {
+                    pattern: 'COLITE_ATTIVA_NAS',
+                    emoji: '⚪',
+                    diagnosis: 'Colite cronica attiva',
+                    description: `Colite cronica attiva (${activeSitesStr}). Pattern non dirimente per classificazione UC vs Crohn. Correlare con dati clinici, endoscopici e sierologici.`,
+                    color: 'gray'
+                };
+            }
+
+            return { pattern: null, diagnosis: null, description: null };
+        };
+
         // ==================== GENERATE REPORT ====================
         const generateReport = () => {
             const scoring = calculateScoring();
             const nancy = calculateNancyIndex();
             const topoPattern = analyzeTopographicPattern();
             const validations = validateClinicalLogic();
+            const diagnosticPattern = detectDiagnosticPattern();  // v2.4.2
 
             const suspiciousGranulomas = specimens.filter(s => 
                 s.findings.granulomi_epitelioidi === 'sospetti'
@@ -594,6 +845,7 @@
                 scoring,
                 nancy,
                 topoPattern,
+                diagnosticPattern,  // v2.4.2
                 suspiciousGranulomas,
                 validations,
                 ihcData,
@@ -889,6 +1141,46 @@
                                 </div>
                             ` : ''}
                         </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        // ==================== DIAGNOSI SUGGERITA v2.4.2 ====================
+        const DiagnosticPatternDisplay = ({ pattern }) => {
+            if (!pattern || !pattern.pattern) return '';
+            
+            const colorMap = {
+                'green': 'bg-green-50 border-green-500 text-green-900',
+                'yellow': 'bg-yellow-50 border-yellow-500 text-yellow-900',
+                'orange': 'bg-orange-50 border-orange-500 text-orange-900',
+                'blue': 'bg-blue-50 border-blue-500 text-blue-900',
+                'purple': 'bg-purple-50 border-purple-500 text-purple-900',
+                'gray': 'bg-gray-50 border-gray-400 text-gray-900'
+            };
+            
+            const colorClass = colorMap[pattern.color] || colorMap['gray'];
+            
+            return `
+                <div class="${colorClass} border-2 rounded-lg p-5 mb-6">
+                    <div class="flex items-start gap-3">
+                        <span class="text-3xl">${pattern.emoji}</span>
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-2">
+                                <h4 class="font-bold text-lg">DIAGNOSI SUGGERITA</h4>
+                                <span class="text-xs bg-white bg-opacity-50 px-2 py-1 rounded">v2.4.2 Auto</span>
+                            </div>
+                            <p class="font-bold text-xl mb-2">${pattern.diagnosis}</p>
+                            <p class="text-sm opacity-90">${pattern.description}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-3 border-t border-current border-opacity-20">
+                        <p class="text-xs opacity-70">
+                            <strong>⚠️ Nota:</strong> Diagnosi suggerita automaticamente dal pattern morfologico. 
+                            Il grado di attività va valutato separatamente (vedi Nancy Index se applicabile). 
+                            Confermare sempre con correlazione clinico-endoscopica.
+                        </p>
                     </div>
                 </div>
             `;
@@ -1280,6 +1572,9 @@
 
             return `
                 <div class="space-y-6">
+                    <!-- DIAGNOSI SUGGERITA v2.4.2 -->
+                    ${DiagnosticPatternDisplay({ pattern: report.diagnosticPattern })}
+
                     <!-- CMV Warning v2.4.1 -->
                     ${CMVWarningDisplay({ cmvStatus: report.ihcData.cmv_status })}
 
@@ -1309,8 +1604,18 @@
                     <div class="bg-white border-2 border-gray-400 rounded-lg p-6 print-friendly">
                         <h3 class="text-xl font-bold mb-4">REFERTO ISTOLOGICO</h3>
                         
+                        <!-- DIAGNOSI SUGGERITA v2.4.2 - PRIMA DI TUTTO -->
+                        ${report.diagnosticPattern && report.diagnosticPattern.pattern ? `
+                            <div class="mb-4 p-4 bg-gray-100 border-l-4 border-blue-500 rounded">
+                                <h4 class="font-bold text-lg mb-2">${report.diagnosticPattern.emoji} DIAGNOSI:</h4>
+                                <p class="font-semibold text-base mb-2">${report.diagnosticPattern.diagnosis}</p>
+                                <p class="text-sm text-gray-700">${report.diagnosticPattern.description}</p>
+                            </div>
+                        ` : ''}
+
                         <!-- Tabella Campioni -->
                         <div class="mb-4">
+                            <h4 class="font-semibold mb-2">Dettaglio per sede:</h4>
                             <table class="w-full text-sm border-collapse">
                                 <thead>
                                     <tr class="bg-gray-200">
@@ -1545,7 +1850,7 @@
     <!-- Footer -->
     <div class="max-w-6xl mx-auto mt-8 text-xs text-gray-600 text-center p-4 bg-gray-100 rounded">
         <p class="font-semibold mb-2">
-            IBD Diagnostic Tool v2.4.1 - STRUMENTO DI SUPPORTO DIAGNOSTICO
+            IBD Diagnostic Tool v2.4.2 - STRUMENTO DI SUPPORTO DIAGNOSTICO
         </p>
         <p class="mb-1">
             <strong>DISCLAIMER:</strong> Questo tool fornisce supporto orientativo alla diagnosi 
@@ -1557,7 +1862,7 @@
             <strong>contesto clinico, endoscopia, sierologia, follow-up</strong>.
         </p>
         <p class="text-gray-500 text-xs mt-2">
-            Release: Gennaio 2026 | v2.4.1: +CMV status | 
+            Release: Gennaio 2026 | v2.4.2: +Diagnosi suggerita automatica | v2.4.1: +CMV | 
             Criteri ileo dedicati, Nancy solo colon
         </p>
         <p class="text-gray-500 text-xs mt-2">
