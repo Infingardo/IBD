@@ -23,17 +23,33 @@
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
         }
         .modal-content {
             background: white;
             max-width: 600px;
-            margin: 20px;
+            width: calc(100% - 20px);
+            margin: 10px;
             border-radius: 12px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-height: calc(100vh - 20px);
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            flex-shrink: 0;
+        }
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .modal-footer {
+            flex-shrink: 0;
         }
     </style>
 </head>
@@ -41,18 +57,18 @@
     <!-- Modal Disclaimer Iniziale -->
     <div id="disclaimer-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <div class="bg-red-600 text-white p-6 rounded-t-xl">
-                <h2 class="text-2xl font-bold flex items-center gap-3">
-                    <span class="text-4xl">⚠️</span>
+            <div class="modal-header bg-red-600 text-white p-4 rounded-t-xl">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    <span class="text-2xl">⚠️</span>
                     <span>STRUMENTO DI SUPPORTO DIAGNOSTICO</span>
                 </h2>
             </div>
-            <div class="p-8 space-y-4">
-                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4">
-                    <p class="font-bold text-lg mb-2 text-yellow-900">
+            <div class="modal-body p-4 space-y-3">
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-3">
+                    <p class="font-bold mb-1 text-yellow-900">
                         ATTENZIONE: Questo tool NON sostituisce
                     </p>
-                    <ul class="list-disc ml-6 space-y-1 text-yellow-800">
+                    <ul class="list-disc ml-5 space-y-1 text-yellow-800 text-sm">
                         <li>Il ragionamento istopatologico del medico</li>
                         <li>L'integrazione con dati clinici ed endoscopici</li>
                         <li>L'esperienza diagnostica in IBD</li>
@@ -60,11 +76,11 @@
                     </ul>
                 </div>
 
-                <div class="bg-blue-50 border-l-4 border-blue-500 p-4">
-                    <p class="font-semibold text-blue-900 mb-2">
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-3">
+                    <p class="font-semibold text-blue-900 mb-1">
                         Lo scoring percentuale è:
                     </p>
-                    <ul class="list-disc ml-6 space-y-1 text-blue-800 text-sm">
+                    <ul class="list-disc ml-5 space-y-1 text-blue-800 text-sm">
                         <li><strong>PURAMENTE ORIENTATIVO</strong> e non diagnostico</li>
                         <li><strong>NON VALIDATO</strong> prospetticamente</li>
                         <li>Basato su criteri di letteratura ma <strong>non standardizzato</strong></li>
@@ -72,18 +88,17 @@
                     </ul>
                 </div>
 
-                <div class="bg-green-50 border-l-4 border-green-500 p-4">
-                    <p class="font-semibold text-green-900 mb-2">
+                <div class="bg-green-50 border-l-4 border-green-500 p-3">
+                    <p class="font-semibold text-green-900 mb-1">
                         Uso consigliato:
                     </p>
                     <p class="text-green-800 text-sm">
                         Patologi con esperienza in IBD, come supporto alla diagnosi differenziale 
-                        in contesto di studio multidisciplinare integrato (istologia + clinica + 
-                        endoscopia + sierologia).
+                        in contesto di studio multidisciplinare integrato.
                     </p>
                 </div>
 
-                <div class="bg-gray-100 p-4 rounded">
+                <div class="bg-gray-100 p-3 rounded">
                     <p class="text-xs text-gray-700 italic">
                         Proseguendo, dichiari di aver compreso che questo è uno strumento di supporto 
                         orientativo e che la diagnosi definitiva richiede valutazione professionale 
@@ -91,10 +106,10 @@
                     </p>
                 </div>
             </div>
-            <div class="p-6 bg-gray-50 rounded-b-xl flex justify-end gap-3">
+            <div class="modal-footer p-4 bg-gray-50 rounded-b-xl">
                 <button 
                     onclick="acceptDisclaimer()"
-                    class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                    class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                 >
                     Ho capito, procedi →
                 </button>
@@ -2483,6 +2498,20 @@
 
             content.innerHTML = TabNavigation({ active: activeTab, onChange: switchTab }) + tabContent;
         };
+
+        // ==================== EXPORT GLOBALI per onclick/onchange ====================
+        window.acceptDisclaimer = acceptDisclaimer;
+        window.addSpecimen = addSpecimen;
+        window.removeSpecimen = removeSpecimen;
+        window.clearData = clearData;
+        window.saveData = saveData;
+        window.switchTab = switchTab;
+        window.updateFormSite = updateFormSite;
+        window.updateIHC = updateIHC;
+        window.updateAltreColiti = updateAltreColiti;
+        window.selectDiagnosiVeloce = selectDiagnosiVeloce;
+        window.clearDiagnosiVeloce = clearDiagnosiVeloce;
+        window.updateGradoManuale = updateGradoManuale;
 
         // ==================== INIT ====================
         loadData();
