@@ -305,51 +305,49 @@
         };
 
         const unlockCase = () => {
-            caseLocked = false;
-            reportGenerated = false;
-            document.getElementById('locked-banner').classList.add('hidden');
+            console.log('🔓 unlockCase() chiamato - HARD RESET');
             
-            // Reset completo
-            specimens = [];
-            ihcData = {
-                cd68_pattern: 'non_eseguito',
-                p53_pattern: 'non_eseguito',
-                cmv_status: 'non_eseguito'
-            };
-            ibdNota = {
-                enabled: false,
-                diagnosiIniziale: null,
-                diagnosiAttuale: null,
-                therapyOngoing: false
-            };
-            altreColiti = {
-                banda_collagene: 'assente',
-                iel_aumentati: 'assente',
-                pattern_superficiale: false,
-                architettura_conservata: false,
-                atrofia_ischemica: false,
-                membrane_ialine: false,
-                emorragia_recente: false,
-                apoptosi_cripte: 'assente',
-                ulcere_diaframma: false
-            };
-            diagnosiVeloce = {
-                selected: null,
-                testo: null,
-                gradoManuale: null
-            };
-            selectedSites = [];
-            multiSiteMode = false;
+            // SOLUZIONE BRUTALE: Clear localStorage + reload pagina
+            localStorage.removeItem(STORAGE_KEY);
+            console.log('🗑️ localStorage CLEARED');
             
-            activeTab = 'campioni';
-            saveData();
-            render();
+            // Forza reload pagina (garantisce clean slate)
+            console.log('🔄 Ricaricando pagina...');
+            window.location.reload();
         };
 
         const confirmReset = () => {
-            if (confirm('⚠️ ATTENZIONE: Questo cancellerà TUTTI i dati del caso attuale.\n\nSei sicuro di voler procedere con il reset?')) {
+            if (confirm('⚠️ ATTENZIONE: Questo cancellerà TUTTI i dati del caso attuale e ricaricherà la pagina.\n\nSei sicuro di voler procedere con il reset?')) {
                 unlockCase();
             }
+        };
+
+        const ResetButton = () => {
+            if (caseLocked) return '';  // Se locked, c'è già il banner
+            
+            return `
+                <div class="bg-gradient-to-r from-red-500 to-orange-500 rounded-lg p-4 mb-6 shadow-lg">
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <span class="text-3xl">🔄</span>
+                            <div>
+                                <p class="font-bold text-white text-lg">
+                                    Vuoi iniziare un nuovo caso?
+                                </p>
+                                <p class="text-sm text-white/90">
+                                    Click qui per resettare tutti i dati e ricominciare da zero
+                                </p>
+                            </div>
+                        </div>
+                        <button 
+                            onclick="confirmReset()"
+                            class="bg-white text-red-600 px-8 py-4 rounded-lg font-bold hover:bg-red-50 transition-all shadow-md text-lg"
+                        >
+                            🗑️ RESET<br>COMPLETO
+                        </button>
+                    </div>
+                </div>
+            `;
         };
 
         // ==================== IBD NOTA HANDLERS ====================
@@ -549,6 +547,27 @@
             }
         };
 
+        const toggleMucinCheckboxSingle = (granulomaValue) => {
+            const container = document.getElementById('mucin-checkbox-container-single');
+            const checkbox = document.getElementById('mucin-granuloma-checkbox-single');
+            if (!container) return;
+            
+            if (granulomaValue === 'presente' || granulomaValue === 'sospetti') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+                if (checkbox) checkbox.checked = false;
+            }
+        };
+
+        const switchToMultiSiteMode = () => {
+            if (caseLocked) return;
+            multiSiteMode = true;
+            selectedSites = [];  // Reset selezione
+            saveData();
+            render();
+        };
+
         const toggleSiteSelection = (site, checked) => {
             if (caseLocked) return;
             if (checked) {
@@ -558,13 +577,19 @@
             } else {
                 selectedSites = selectedSites.filter(s => s !== site);
             }
+            
+            // Aggiorna button text dinamicamente
+            const btn = document.getElementById('confirm-sites-btn');
+            if (btn) {
+                btn.disabled = selectedSites.length === 0;
+                btn.textContent = `Avanti → Compila Findings (${selectedSites.length} ${selectedSites.length === 1 ? 'sede' : 'sedi'})`;
+            }
+            
             saveData();
-            render();
         };
 
         const confirmSiteSelection = () => {
             if (caseLocked || selectedSites.length === 0) return;
-            multiSiteMode = true;
             saveData();
             render();
         };
@@ -1389,27 +1414,173 @@
         const SpecimenForm = () => {
             if (caseLocked) return '';
             
+            // Se in modalità multi-sede, mostra workflow bulk
+            if (multiSiteMode) {
+                return MultiSiteWorkflow();
+            }
+            
+            // WORKFLOW NORMALE (default)
+            const sites = ['ileo', 'cieco', 'ascendente', 'trasverso', 'discendente', 'sigma', 'retto', 'pouch', 'anastomosi'];
+
+            const colonFindings = {
+                granulomi_epitelioidi: ['assente', 'sospetti', 'presente'],
+                neutrofili_epitelio: ['assente', 'lieve', 'moderata', 'marcata'],
+                ascessi_criptici: ['assente', 'presente'],
+                plasmacellule_basale: ['assente', 'presente'],
+                distorsione_architettura: ['assente', 'presente'],
+                metaplasia_paneth: ['assente', 'presente'],
+                ulcerazione: ['assente', 'presente'],
+                fibrosi_sottomucosa: ['assente', 'lieve', 'moderata', 'marcata'],
+                displasia: ['assente', 'indefinita', 'LGD', 'HGD']
+            };
+
+            const ileumFindings = {
+                granulomi_epitelioidi: ['assente', 'sospetti', 'presente'],
+                neutrofili_lamina_propria: ['assente', 'lieve', 'moderata', 'marcata'],
+                erosioni_ulcerazioni: ['assente', 'presente'],
+                iperplasia_linfoide: ['assente', 'presente'],
+                edema_lamina_propria: ['assente', 'presente'],
+                atrofia_villi: ['assente', 'lieve', 'moderata', 'marcata'],
+                plasmacellule_aumentate: ['assente', 'presente'],
+                fibrosi_sottomucosa: ['assente', 'lieve', 'moderata', 'marcata']
+            };
+
+            const getLabel = (key) => {
+                const labels = {
+                    'granulomi_epitelioidi': 'Granulomi Epitelioidi',
+                    'neutrofili_epitelio': 'Neutrofili Intraepiteliali',
+                    'neutrofili_lamina_propria': 'Neutrofili Lamina Propria',
+                    'erosioni_ulcerazioni': 'Erosioni/Ulcerazioni Aftose',
+                    'iperplasia_linfoide': 'Iperplasia Linfoide',
+                    'edema_lamina_propria': 'Edema Lamina Propria',
+                    'atrofia_villi': 'Atrofia Villi',
+                    'plasmacellule_aumentate': 'Plasmacellule Aumentate',
+                    'ascessi_criptici': 'Ascessi Criptici',
+                    'plasmacellule_basale': 'Plasmacellule Basale',
+                    'distorsione_architettura': 'Distorsione Architettura',
+                    'metaplasia_paneth': 'Metaplasia Paneth',
+                    'ulcerazione': 'Ulcerazione',
+                    'fibrosi_sottomucosa': 'Fibrosi Sottomucosa',
+                    'displasia': '⚠️ Displasia'
+                };
+                return labels[key] || key.replace(/_/g, ' ');
+            };
+
+            const renderFindings = (site) => {
+                const isIleum = site === 'ileo';
+                const findings = isIleum ? ileumFindings : colonFindings;
+                
+                return Object.entries(findings).map(([key, values]) => {
+                    const label = getLabel(key);
+                    const isDisplasia = key === 'displasia';
+                    const isGranulomi = key === 'granulomi_epitelioidi';
+                    const options = values.map(v => 
+                        '<option value="' + v + '">' + v.charAt(0).toUpperCase() + v.slice(1) + '</option>'
+                    ).join('');
+                    
+                    return `
+                        <div class="${isDisplasia ? 'col-span-2 bg-red-50 p-2 rounded border border-red-200' : ''}">
+                            <label class="block text-sm font-semibold mb-2 ${isDisplasia ? 'text-red-700' : ''}">${label}:</label>
+                            <select id="finding-${key}" class="w-full p-2 border rounded ${isDisplasia ? 'border-red-300' : ''}" ${isGranulomi ? 'onchange="toggleMucinCheckboxSingle(this.value)"' : ''}>
+                            ${options}
+                            </select>
+                        </div>
+                        ${isGranulomi ? `
+                            <div id="mucin-checkbox-container-single" class="col-span-2 hidden bg-yellow-50 p-3 border border-yellow-400 rounded">
+                                <label class="flex items-center gap-2">
+                                    <input 
+                                        type="checkbox" 
+                                        id="mucin-granuloma-checkbox-single"
+                                        class="w-4 h-4"
+                                    >
+                                    <span class="text-sm font-semibold text-yellow-900">
+                                        ⚠️ Rottura criptale/Mucin granuloma plausibile?
+                                    </span>
+                                </label>
+                                <p class="text-xs text-yellow-800 mt-1">
+                                    Spunta se granulomi potrebbero essere secondari a rottura criptale (riduce peso Crohn)
+                                </p>
+                            </div>
+                        ` : ''}
+                    `;
+                }).join('');
+            };
+
+            return `
+                <div class="bg-blue-50 rounded-lg p-6 mb-6">
+                    <h3 class="text-xl font-bold mb-4">Aggiungi Campione</h3>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold mb-2">Sede:</label>
+                        <select id="site-select" onchange="updateFormSite(this.value)" class="w-full p-2 border rounded">
+                            ${sites.map(s => '<option value="' + s + '"' + (s === currentSite ? ' selected' : '') + '>' + s.charAt(0).toUpperCase() + s.slice(1) + '</option>').join('')}
+                        </select>
+                        <p class="text-xs text-gray-600 mt-1">
+                            ${currentSite === 'ileo' 
+                                ? '🔬 Criteri ILEO: erosioni aftose, atrofia villi, iperplasia linfoide (no displasia)' 
+                                : '🔬 Criteri COLON: cripte, distorsione architettura, displasia'
+                            }
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        ${renderFindings(currentSite)}
+                    </div>
+
+                    <div class="mt-4 flex gap-3">
+                        <button 
+                            onclick="addSpecimen()"
+                            class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                        >
+                            + Aggiungi Campione
+                        </button>
+                        
+                        <button 
+                            onclick="switchToMultiSiteMode()"
+                            class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2"
+                        >
+                            <span>⚡</span>
+                            <span>Aggiungi Tutti i Campioni Insieme</span>
+                        </button>
+                    </div>
+                    
+                    <p class="text-xs text-gray-500 mt-2">
+                        💡 <strong>Più sedi?</strong> Usa "Aggiungi Tutti Insieme" per selezionare e compilare tutte le sedi in una volta
+                    </p>
+                </div>
+            `;
+        };
+
+        const MultiSiteWorkflow = () => {
             const sites = ['ileo', 'cieco', 'ascendente', 'trasverso', 'discendente', 'sigma', 'retto', 'pouch', 'anastomosi'];
 
             // STEP 1: Selezione sedi (se non ancora selezionate)
-            if (!multiSiteMode) {
+            if (selectedSites.length === 0) {
                 return `
-                    <div class="bg-blue-50 rounded-lg p-6 mb-6 border-2 border-blue-400">
-                        <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
-                            <span>🎯</span> STEP 1: Quali sedi hai campionato?
-                        </h3>
+                    <div class="bg-green-50 rounded-lg p-6 mb-6 border-2 border-green-400">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-bold flex items-center gap-2">
+                                <span>🎯</span> STEP 1: Quali sedi hai campionato?
+                            </h3>
+                            <button 
+                                onclick="cancelMultiSiteMode()"
+                                class="text-sm text-gray-600 hover:text-gray-800 underline"
+                            >
+                                ← Torna a Modalità Normale
+                            </button>
+                        </div>
                         <p class="text-sm text-gray-700 mb-4">
                             Seleziona tutte le sedi campionate. Poi compilerai i findings per ciascuna.
                         </p>
                         
                         <div class="grid grid-cols-3 gap-3 mb-4">
                             ${sites.map(site => `
-                                <label class="flex items-center gap-2 p-3 bg-white rounded border-2 border-gray-300 hover:border-blue-500 cursor-pointer transition-all">
+                                <label class="flex items-center gap-2 p-3 bg-white rounded border-2 border-gray-300 hover:border-green-500 cursor-pointer transition-all">
                                     <input 
                                         type="checkbox" 
                                         value="${site}"
                                         onchange="toggleSiteSelection('${site}', this.checked)"
-                                        class="w-5 h-5 accent-blue-600"
+                                        class="w-5 h-5 accent-green-600"
                                     >
                                     <span class="font-semibold capitalize">${site}</span>
                                 </label>
@@ -1419,16 +1590,12 @@
                         <div class="flex items-center gap-3">
                             <button 
                                 onclick="confirmSiteSelection()"
-                                class="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                ${selectedSites.length === 0 ? 'disabled' : ''}
+                                class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                id="confirm-sites-btn"
+                                disabled
                             >
-                                Avanti → Compila Findings (${selectedSites.length} ${selectedSites.length === 1 ? 'sede' : 'sedi'})
+                                Avanti → Compila Findings (0 sedi)
                             </button>
-                            ${selectedSites.length > 0 ? `
-                                <span class="text-sm text-gray-600">
-                                    Sedi: ${selectedSites.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')}
-                                </span>
-                            ` : ''}
                         </div>
                     </div>
                 `;
@@ -1520,14 +1687,14 @@
             };
 
             return `
-                <div class="bg-blue-50 rounded-lg p-6 mb-6 border-2 border-blue-400">
+                <div class="bg-green-50 rounded-lg p-6 mb-6 border-2 border-green-400">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-xl font-bold flex items-center gap-2">
                             <span>📋</span> STEP 2: Compila Findings per Ogni Sede
                         </h3>
                         <button 
                             onclick="cancelMultiSiteMode()"
-                            class="text-sm text-blue-600 hover:text-blue-800 underline"
+                            class="text-sm text-gray-600 hover:text-gray-800 underline"
                         >
                             ← Cambia Selezione Sedi
                         </button>
@@ -2027,8 +2194,8 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                 if (element) findings[key] = element.value;
             });
 
-            // v3.0.2 FIX #3: Checkbox mucin granuloma
-            const mucinCheckbox = document.getElementById('mucin-granuloma-checkbox');
+            // v3.0.2 FIX #3: Checkbox mucin granuloma (workflow singolo)
+            const mucinCheckbox = document.getElementById('mucin-granuloma-checkbox-single');
             const mucinGranulomaLikely = mucinCheckbox && mucinCheckbox.checked;
 
             specimens.push({ 
@@ -2140,7 +2307,8 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                         </div>
                     `;
                 } else {
-                    tabContent = IbdNotaPanel() + DiagnosiVelocePanel() + SpecimenForm() + SpecimenList();
+                    // ORDINE LOGICO: Reset → IBD Nota → Selezione Sedi → Diagnosi Veloci → Lista
+                    tabContent = ResetButton() + IbdNotaPanel() + SpecimenForm() + DiagnosiVelocePanel() + SpecimenList();
                 }
             } else if (activeTab === 'ihc') {
                 tabContent = IHCPanel();
@@ -2167,8 +2335,11 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
         window.selectDiagnosiVeloce = selectDiagnosiVeloce;
         window.clearDiagnosiVeloce = clearDiagnosiVeloce;
         window.updateGradoManuale = updateGradoManuale;
+        window.unlockCase = unlockCase;  // FIX: mancava export!
         window.confirmReset = confirmReset;
         window.toggleMucinCheckbox = toggleMucinCheckbox;
+        window.toggleMucinCheckboxSingle = toggleMucinCheckboxSingle;
+        window.switchToMultiSiteMode = switchToMultiSiteMode;
         window.toggleSiteSelection = toggleSiteSelection;
         window.confirmSiteSelection = confirmSiteSelection;
         window.cancelMultiSiteMode = cancelMultiSiteMode;
