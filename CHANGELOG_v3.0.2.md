@@ -11,7 +11,7 @@
 v3.0.2 risolve **7 bug critici** identificati da revisione ChatGPT o4-mini che rendevano il tool **pericoloso per training giovani patologi**:
 
 1. ❌ **Topografia falsata**: Displasia contava come "sede coinvolta" → falsi skip lesions
-2. ❌ **Scoring IBDU fragile**: IBDU = 100 - Crohn - UC → matematica incoerente
+2. ❌ **Scoring IBDU fragile**: IBDU = 100 - Crohn - RCU → matematica incoerente
 3. ❌ **Granulomi peso eccessivo**: 150 punti anche per granulomi "sospetti"
 4. ❌ **CD68 "transmurale"**: Terminologia sbagliata su biopsia mucosa
 5. ❌ **CMV terapeutico**: "Valutare ganciclovir" → overreach medico-legale
@@ -37,7 +37,7 @@ sitesWithFindings = specimens.filter(s =>
 **Scenario catastrofico**:
 - Caso: Sigma con LGD + retto normale + discendente flogosi attiva
 - v3.0.1: "Skip lesions" (sigma "coinvolto" per displasia)
-- Diagnosi errata: Crohn-like invece di UC con displasia
+- Diagnosi errata: Crohn-like invece di RCU con displasia
 
 ### Soluzione
 **Nuova funzione**: `hasInflammatoryFindings(specimen)`
@@ -86,7 +86,7 @@ const sitesWithFindings = specimens
 
 ### Testing
 - [x] Sigma LGD + retto normale + discendente attiva → NO skip lesions
-- [x] Trasverso HGD + resto UC-like → pattern continuo UC conservato
+- [x] Trasverso HGD + resto RCU-like → pattern continuo RCU conservato
 - [x] Fibrosi marcata ileo (no flogosi) → ileo "non coinvolto"
 
 **Files modificati**: ~35 righe (nuova funzione + refactor topografia)
@@ -102,7 +102,7 @@ scores.ibdu = Math.max(0, 100 - scores.crohn - scores.uc) + ibduBoost;
 const total = scores.crohn + scores.uc + scores.ibdu;
 // Normalizzazione su total...
 
-// Se Crohn = 200, UC = 100:
+// Se Crohn = 200, RCU = 100:
 // scores.ibdu = max(0, 100-200-100) + boost = 0 + boost
 // IBDU diventa "resto + boost", poi normalizzato
 // → Pseudo-precisione matematica senza significato clinico
@@ -163,13 +163,13 @@ if (total > 0) {
 
 **Principi**:
 1. IBDU non è "resto", è **pattern contraddittorio attivo**
-2. Boost basati su **conflitti reali** (granulomi + UC-like)
+2. Boost basati su **conflitti reali** (granulomi + RCU-like)
 3. Score equiparati → IBDU alto (indeterminato vero)
 
 ### Testing
 - [x] Granulomi + plasmacellule basali → IBDU >50%
-- [x] Score Crohn 45%, UC 40% → IBDU significativo
-- [x] Pattern aspecifico (Crohn 30, UC 25) → IBDU dominante
+- [x] Score Crohn 45%, RCU 40% → IBDU significativo
+- [x] Pattern aspecifico (Crohn 30, RCU 25) → IBDU dominante
 
 **Files modificati**: ~60 righe (nuova funzione + integrazione)
 
@@ -280,7 +280,7 @@ if (f.granulomi_epitelioidi === 'sospetti') {
         Aggregati macrofagici profondi/sottomucosa (Crohn-like)
     </option>
     <option value="diffuso_mucosa">
-        Diffuso mucosa (UC-like)
+        Diffuso mucosa (RCU-like)
     </option>
 </select>
 <p class="text-xs text-gray-600 mt-1">
@@ -569,15 +569,15 @@ ${report.dysplasiaReport ? `
 
 ### Fix #1: Topografia
 - [ ] Sigma LGD + retto normale + discendente attiva → NO skip lesions
-- [ ] Trasverso HGD + pattern UC continuo → continuità preservata
+- [ ] Trasverso HGD + pattern RCU continuo → continuità preservata
 - [ ] Fibrosi marcata ileo (no flogosi) → ileo "non coinvolto"
 - [ ] Ileo neutrofili + colon displasia → ileo "coinvolto", colon "non coinvolto"
 
 ### Fix #2: IBDU Scoring
 - [ ] Granulomi + plasmacellule basali → IBDU >50%
-- [ ] Crohn 45% + UC 40% (equiparati) → IBDU significativo
-- [ ] Crohn 30 + UC 25 (entrambi bassi) → IBDU dominante
-- [ ] Crohn 200 + UC 50 raw → IBDU con boost overlap corretto
+- [ ] Crohn 45% + RCU 40% (equiparati) → IBDU significativo
+- [ ] Crohn 30 + RCU 25 (entrambi bassi) → IBDU dominante
+- [ ] Crohn 200 + RCU 50 raw → IBDU con boost overlap corretto
 
 ### Fix #3: Granulomi
 - [ ] Granulomi "presente" + checkbox mucin → peso 20, warning CAUTION
@@ -701,7 +701,7 @@ v3.0.2 risolve **7 bug critici** che rendevano il tool potenzialmente **pericolo
 
 **Status**: ✅ Production-ready per uso con giovani colleghi
 
-**Author**: Dr. Filippo Fraggetta, SC Anatomia Patologica ASST Fatebenefratelli-Sacco Milano
+**Author**: Dr. Filippo Bianchi, SC Anatomia Patologica ASST Fatebenefratelli-Sacco Milano
 
 **Review**: ChatGPT o4-mini (critical bug identification), Claude Sonnet 4.5 (implementation)
 
