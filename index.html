@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v3.0.7 "Epistemic Guard"</title>
+    <title>IBD Diagnostic Tool v3.0.8 "Lean Expert"</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print {
@@ -139,7 +139,7 @@
 
                 <div class="bg-gray-100 p-3 rounded">
                     <p class="text-xs text-gray-700 italic">
-                        v3.0.7 "Epistemic Guard": Griglia selezione sedi + bottone "Seleziona Tutti" (7 sedi standard).
+                        v3.0.8 "Lean Expert": Griglia selezione sedi + bottone "Seleziona Tutti" (7 sedi standard).
                     </p>
                 </div>
             </div>
@@ -158,7 +158,7 @@
         <!-- Header -->
         <div class="mb-4 border-b pb-4">
             <h1 class="text-3xl font-bold text-blue-900 mb-2">
-                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.0.7 "Epistemic Guard"</span>
+                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.0.8 "Lean Expert"</span>
             </h1>
             <p class="text-sm text-gray-600">
                 Supporto diagnosi differenziale Malattie Infiammatorie Croniche Intestinali (IBD)
@@ -213,7 +213,7 @@
 
     <script>
         // ==================== CONFIGURAZIONE ====================
-        const APP_VERSION = '3.0.7';
+        const APP_VERSION = '3.0.8';
         const STORAGE_KEY = 'ibdAppDataV305';
         const DISCLAIMER_KEY = 'ibdDisclaimerAccepted';
 
@@ -234,7 +234,9 @@
         
         let altreColiti = {
             banda_collagene: 'assente',
+            banda_collagene_um: null,  // Spessore in μm
             iel_aumentati: 'assente',
+            iel_count: null,  // Valore numerico IEL/100 cellule epiteliali
             pattern_superficiale: false,
             architettura_conservata: false,
             atrofia_ischemica: false,
@@ -258,7 +260,8 @@
 
         let caseLocked = false;
         let reportGenerated = false;
-        let userConfirmedReview = false;  // ChatGPT: conferma verifica vetrino
+        let editingSpecimenIndex = null;  // Per editing singoli campioni
+        
 
         // ==================== v3.0.4 FIX: UNLOCK CASE (FUNZIONA OVUNQUE) ====================
         
@@ -288,7 +291,9 @@
             };
             altreColiti = {
                 banda_collagene: 'assente',
+                banda_collagene_um: null,
                 iel_aumentati: 'assente',
+                iel_count: null,
                 pattern_superficiale: false,
                 architettura_conservata: false,
                 atrofia_ischemica: false,
@@ -311,7 +316,7 @@
             // 3. CRITICO: Reset lock flags
             caseLocked = false;
             reportGenerated = false;
-            userConfirmedReview = false;  // ChatGPT: reset conferma
+            editingSpecimenIndex = null;
             
             console.log('✅ Variabili resettate, caseLocked =', caseLocked);
             
@@ -338,6 +343,16 @@
                 document.getElementById('locked-banner').classList.remove('hidden');
                 saveData();
             }
+        };
+
+        // Sblocca per modifiche SENZA cancellare dati
+        const unlockForEdit = () => {
+            caseLocked = false;
+            reportGenerated = false;
+            activeTab = 'campioni';
+            document.getElementById('locked-banner').classList.add('hidden');
+            saveData();
+            render();
         };
 
         const confirmReset = () => {
@@ -536,6 +551,14 @@
         const updateAltreColiti = (field, value) => {
             if (caseLocked) return;
             altreColiti[field] = value;
+            // Se IEL tornano normali, resetta anche il count
+            if (field === 'iel_aumentati' && value === 'assente') {
+                altreColiti.iel_count = null;
+            }
+            // Se banda collagene torna assente, resetta anche lo spessore
+            if (field === 'banda_collagene' && value === 'assente') {
+                altreColiti.banda_collagene_um = null;
+            }
             saveData();
             render();
         };
@@ -746,7 +769,12 @@
 
         const calculateNancyIndex = () => {
             const nancyDecision = shouldShowNancy();
-            if (!nancyDecision.show) {
+            
+            // Forza calcolo Nancy se diagnosi veloce UC
+            const forceNancy = diagnosiVeloce.selected && 
+                ['PROCTITE_UC', 'COLITE_SINISTRA_UC', 'PANCOLITE_UC', 'IBD_REMISSIONE'].includes(diagnosiVeloce.selected);
+            
+            if (!nancyDecision.show && !forceNancy) {
                 return { score: null, interpretation: null, applicable: false, warning: null };
             }
 
@@ -1044,8 +1072,18 @@
                 epistemicNote: null
             };
             
-            // CHECK PRIORITARIO: Mucosa normale (tutti findings assenti)
-            const isAllNormal = specimens.every(s => {
+            // CHECK PRIORITARIO: Mucosa normale (tutti findings assenti E nessuna colite speciale)
+            const hasAltreColitiFindings = 
+                (altreColiti.banda_collagene !== 'assente' && altreColiti.banda_collagene !== 'normale') ||
+                (altreColiti.iel_aumentati !== 'assente' && altreColiti.iel_aumentati !== 'normale') ||
+                altreColiti.apoptosi_cripte !== 'assente' ||
+                altreColiti.pattern_superficiale === true ||
+                altreColiti.atrofia_ischemica === true ||
+                altreColiti.membrane_ialine === true ||
+                altreColiti.emorragia_recente === true ||
+                altreColiti.ulcere_diaframma === true;
+            
+            const isAllNormal = !hasAltreColitiFindings && specimens.every(s => {
                 const f = s.findings;
                 if (s.siteType === 'ileum') {
                     return f.granulomi_epitelioidi === 'assente' &&
@@ -1078,6 +1116,64 @@
                 return result;
             }
             
+            // CHECK COLITI SPECIALI (microscopiche, ischemica, FANS)
+            if (hasAltreColitiFindings) {
+                // Colite collagenosica
+                if (altreColiti.banda_collagene === 'ispessita' || altreColiti.banda_collagene === 'marcata') {
+                    result.primary = 'Colite Collagenosica';
+                    result.level = altreColiti.banda_collagene === 'marcata' ? 'alta' : 'buona';
+                    result.headline = 'Colite microscopica, tipo collagenosica';
+                    const bandaText = altreColiti.banda_collagene_um 
+                        ? `Banda collagene subepiteliale: ${altreColiti.banda_collagene_um}μm (v.n. <10μm)`
+                        : `Banda collagene subepiteliale ${altreColiti.banda_collagene === 'marcata' ? 'marcatamente ispessita (>20μm)' : 'ispessita (≥10μm)'}`;
+                    result.description = `${bandaText}. Architettura ghiandolare conservata.`;
+                    return result;
+                }
+                // Colite linfocitica
+                if (altreColiti.iel_aumentati === 'aumentati' || altreColiti.iel_aumentati === 'marcati') {
+                    result.primary = 'Colite Linfocitica';
+                    result.level = altreColiti.iel_aumentati === 'marcati' ? 'alta' : 'buona';
+                    result.headline = 'Colite microscopica, tipo linfocitica';
+                    const ielText = altreColiti.iel_count 
+                        ? `Linfociti intraepiteliali: ${altreColiti.iel_count}/100 cellule epiteliali (v.n. <20)`
+                        : `Linfociti intraepiteliali ${altreColiti.iel_aumentati === 'marcati' ? 'marcatamente aumentati (>30/100)' : 'aumentati (≥20/100 cellule epiteliali)'}`;
+                    result.description = `${ielText}. Architettura ghiandolare conservata.`;
+                    return result;
+                }
+                // Colite ischemica
+                const ischemicFeatures = [altreColiti.atrofia_ischemica, altreColiti.membrane_ialine, altreColiti.emorragia_recente].filter(Boolean).length;
+                if (ischemicFeatures >= 2) {
+                    result.primary = 'Colite Ischemica';
+                    result.level = ischemicFeatures === 3 ? 'alta' : 'suggestivo';
+                    result.headline = 'Pattern compatibile con colite ischemica';
+                    result.description = `Presenti ${ischemicFeatures}/3 criteri ischemici (atrofia cripte, membrane ialine, emorragia). Correlare con sede e fattori di rischio cardiovascolare.`;
+                    return result;
+                }
+                // Colite da FANS
+                if (altreColiti.ulcere_diaframma) {
+                    result.primary = 'Enteropatia da FANS';
+                    result.level = 'alta';
+                    result.headline = 'Enteropatia/Colite da FANS';
+                    result.description = 'Ulcere a diaframma presenti (patognomonico). Confermare anamnesi farmacologica.';
+                    return result;
+                }
+                if (altreColiti.apoptosi_cripte !== 'assente') {
+                    result.primary = 'Possibile Colite da FANS';
+                    result.level = 'suggestivo';
+                    result.headline = 'Pattern suggestivo per colite da FANS';
+                    result.description = `Apoptosi cripte ${altreColiti.apoptosi_cripte}. Considerare eziologia farmacologica.`;
+                    return result;
+                }
+                // Colite infettiva
+                if (altreColiti.pattern_superficiale && altreColiti.architettura_conservata) {
+                    result.primary = 'Colite Infettiva';
+                    result.level = 'suggestivo';
+                    result.headline = 'Pattern compatibile con colite infettiva';
+                    result.description = 'Infiammazione superficiale con architettura conservata. Correlare con coprocoltura e dati clinici.';
+                    return result;
+                }
+            }
+            
             if (max === crohn && crohn >= 40) {
                 result.primary = 'Malattia di Crohn';
                 
@@ -1098,21 +1194,59 @@
                 }
             }
             else if (max === uc && uc >= 40) {
-                result.primary = 'Rettocolite Ulcerosa';
+                // Determina se proctite, colite sinistra o pancolite
+                const topoPattern = analyzeTopographicPattern();
+                const activeSites = specimens.filter(s => 
+                    s.siteType !== 'ileum' && (
+                        s.findings.neutrofili_epitelio !== 'assente' ||
+                        s.findings.distorsione_architettura === 'presente' ||
+                        s.findings.plasmacellule_basale === 'presente'
+                    )
+                ).map(s => s.site);
+                
+                // Rileva remissione: diagnosi veloce O assenza di attività acuta (neutrofili)
+                const hasAcuteActivity = specimens.some(s => 
+                    s.siteType !== 'ileum' && (
+                        s.findings.neutrofili_epitelio !== 'assente' ||
+                        s.findings.ascessi_criptici === 'presente' ||
+                        s.findings.ulcerazione === 'presente'
+                    )
+                );
+                const isRemission = diagnosiVeloce.selected === 'IBD_REMISSIONE' || !hasAcuteActivity;
+                
+                // Proctite: solo retto coinvolto
+                const isProctitis = activeSites.length === 1 && activeSites.includes('retto');
+                // Colite sinistra: retto + sigma +/- discendente, no trasverso/ascendente/cieco
+                const leftSites = ['retto', 'sigma', 'discendente'];
+                const rightSites = ['trasverso', 'ascendente', 'cieco'];
+                const isLeftSided = activeSites.every(s => leftSites.includes(s)) && 
+                                    activeSites.some(s => s === 'retto') &&
+                                    !activeSites.some(s => rightSites.includes(s));
+                
+                const ucLabel = isProctitis ? 'proctite ulcerosa' : 
+                               (isLeftSided && !isProctitis) ? 'rettocolite ulcerosa sinistra' : 
+                               'rettocolite ulcerosa';
+                const ucLabelCap = isProctitis ? 'Proctite ulcerosa' : 
+                                  (isLeftSided && !isProctitis) ? 'Rettocolite ulcerosa sinistra' : 
+                                  'Rettocolite ulcerosa';
+                
+                const remissionSuffix = isRemission ? ' in fase di remissione istologica' : '';
+                
+                result.primary = ucLabelCap;
                 
                 if (uc >= 80) {
                     result.level = 'alta';
-                    result.headline = 'Rettocolite ulcerosa (pattern istologico fortemente suggestivo)';
-                    result.description = 'Pattern morfologico e distributivo fortemente indicativo per rettocolite ulcerosa.';
+                    result.headline = `${ucLabelCap}${remissionSuffix} (pattern istologico fortemente suggestivo)`;
+                    result.description = `Pattern morfologico e distributivo fortemente indicativo per ${ucLabel}${remissionSuffix}.`;
                 } else if (uc >= 60) {
                     result.level = 'probabile';
-                    result.headline = 'Quadro compatibile con rettocolite ulcerosa';
-                    result.description = 'Pattern morfologico compatibile con rettocolite ulcerosa. Correlazione con distribuzione endoscopica NECESSARIA per diagnosi definitiva.';
-                    result.epistemicNote = 'Score in range intermedio (60-79%). Conferma con pattern topografico endoscopico (continuo, retto coinvolto, ileo indenne) essenziale.';
+                    result.headline = `Quadro compatibile con ${ucLabel}${remissionSuffix}`;
+                    result.description = `Pattern morfologico compatibile con ${ucLabel}${remissionSuffix}.${isRemission ? ' Persistono alterazioni architetturali croniche residue. Assenza di attività infiammatoria acuta.' : ' Correlazione con distribuzione endoscopica NECESSARIA per diagnosi definitiva.'}`;
+                    result.epistemicNote = isRemission ? null : 'Score in range intermedio (60-79%). Conferma con pattern topografico endoscopico (continuo, retto coinvolto, ileo indenne) essenziale.';
                 } else {
                     result.level = 'suggestivo';
-                    result.headline = 'Pattern suggestivo ma non diagnostico per rettocolite ulcerosa';
-                    result.description = 'Pattern istologico con alcune features compatibili con RCU, ma INSUFFICIENTE per diagnosi definitiva.';
+                    result.headline = `Pattern suggestivo ma non diagnostico per ${ucLabel}${remissionSuffix}`;
+                    result.description = `Pattern istologico con alcune features compatibili con ${ucLabel}, ma INSUFFICIENTE per diagnosi definitiva.`;
                     result.epistemicNote = 'Score borderline (40-59%). Istologia da sola NON consente diagnosi. Verifica distribuzione continua, coinvolgimento rettale e risparmio ileale tramite endoscopia.';
                 }
             }
@@ -1333,17 +1467,23 @@
             const results = [];
             
             if (altreColiti.banda_collagene === 'ispessita' || altreColiti.banda_collagene === 'marcata') {
+                const bandaDesc = altreColiti.banda_collagene_um 
+                    ? `Banda collagene: ${altreColiti.banda_collagene_um}μm (v.n. <10μm)`
+                    : `Banda collagene subepiteliale ${altreColiti.banda_collagene === 'marcata' ? 'marcatamente ispessita (>20μm)' : 'ispessita (≥10μm)'}`;
                 results.push({
                     tipo: 'COLITE_COLLAGENA', emoji: '🔬', diagnosi: 'Colite collagenosica',
-                    descrizione: `Banda collagene subepiteliale ${altreColiti.banda_collagene === 'marcata' ? 'marcatamente ispessita (>20μm)' : 'ispessita (≥10μm)'}. Pattern diagnostico per colite collagenosica.`,
+                    descrizione: `${bandaDesc}. Pattern diagnostico per colite collagenosica.`,
                     confidence: altreColiti.banda_collagene === 'marcata' ? 'alta' : 'buona', color: 'purple'
                 });
             }
             
             if (altreColiti.iel_aumentati === 'aumentati' || altreColiti.iel_aumentati === 'marcati') {
+                const ielDesc = altreColiti.iel_count 
+                    ? `IEL: ${altreColiti.iel_count}/100 cellule epiteliali (v.n. <20)`
+                    : `IEL ${altreColiti.iel_aumentati === 'marcati' ? 'marcatamente aumentati (>30/100)' : 'aumentati (≥20/100 cellule epiteliali)'}`;
                 results.push({
                     tipo: 'COLITE_LINFOCITICA', emoji: '🔬', diagnosi: 'Colite Linfocitica',
-                    descrizione: `IEL ${altreColiti.iel_aumentati === 'marcati' ? 'marcatamente aumentati (>30/100)' : 'aumentati (≥20/100 cellule epiteliali)'}. Pattern diagnostico per colite linfocitica.`,
+                    descrizione: `${ielDesc}. Pattern diagnostico per colite linfocitica.`,
                     confidence: altreColiti.iel_aumentati === 'marcati' ? 'alta' : 'buona', color: 'purple'
                 });
             }
@@ -1756,7 +1896,8 @@
                         if (isIleum) {
                             findings = { ...DEFAULT_ILEUM_FINDINGS };
                         } else {
-                            findings = getUCRemissionFindings();
+                            // Usa Nancy grade se fornito, altrimenti remissione default
+                            findings = nancyGrade !== null ? getUCActiveFindings(nancyGrade) : getUCRemissionFindings();
                         }
                         break;
                         
@@ -1881,7 +2022,7 @@
         };
 
         // Diagnosi che richiedono selezione grado Nancy
-        const DIAGNOSI_CON_NANCY = ['PROCTITE_UC', 'COLITE_SINISTRA_UC', 'PANCOLITE_UC'];
+        const DIAGNOSI_CON_NANCY = ['PROCTITE_UC', 'COLITE_SINISTRA_UC', 'PANCOLITE_UC', 'IBD_REMISSIONE'];
 
         // ⚡ TUTTI NORMALI: Aggiunge tutte le 7 sedi standard con findings normali
         const addAllNormalSpecimens = () => {
@@ -1897,7 +2038,7 @@
             selectedSites = [...STANDARD_SITES];
             generateSpecimensFromDiagnosi('NORMALE');
             
-            alert('✅ Aggiunti 7 campioni normali (ileo → retto).\n\n⚠️ Sedi speciali (pouch, anastomosi) escluse.\n\nOra puoi andare al tab Referto.');
+            alert('✅ Aggiunti 7 campioni normali');
         };
 
         const selectAllStandardSites = () => {
@@ -1923,25 +2064,73 @@
             
             // Se diagnosi richiede Nancy, chiedi il grado
             if (DIAGNOSI_CON_NANCY.includes(diagnosiCode)) {
+                const defaultNancy = diagnosiCode === 'IBD_REMISSIONE' ? '1' : '2';
                 const nancyInput = prompt(
-                    'Inserisci il grado Nancy (1-4):\n\n' +
+                    'Inserisci il grado Nancy (0-4):\n\n' +
+                    '0 = Remissione completa (mucosa normale)\n' +
                     '1 = Remissione con alterazioni croniche\n' +
                     '2 = Attività lieve\n' +
                     '3 = Attività moderata (ascessi criptici)\n' +
                     '4 = Attività severa (ulcerazione)',
-                    '2'
+                    defaultNancy
                 );
                 
                 if (nancyInput === null) return; // Annullato
                 
                 const nancy = parseInt(nancyInput);
-                if (isNaN(nancy) || nancy < 1 || nancy > 4) {
-                    alert('Grado Nancy non valido. Usa un numero da 1 a 4.');
+                if (isNaN(nancy) || nancy < 0 || nancy > 4) {
+                    alert('Grado Nancy non valido. Usa un numero da 0 a 4.');
                     return;
                 }
                 
                 generateSpecimensFromDiagnosi(diagnosiCode, nancy);
-            } else {
+            } 
+            // Se colite linfocitica, chiedi conta IEL
+            else if (diagnosiCode === 'COLITE_LINFOCITICA') {
+                const ielInput = prompt(
+                    'Inserisci la conta IEL/100 cellule epiteliali:\n\n' +
+                    '(v.n. <20, diagnostico ≥20)',
+                    '25'
+                );
+                
+                if (ielInput === null) return; // Annullato
+                
+                const ielCount = parseInt(ielInput);
+                if (isNaN(ielCount) || ielCount < 0 || ielCount > 100) {
+                    alert('Conta IEL non valida. Usa un numero da 0 a 100.');
+                    return;
+                }
+                
+                // Setta il valore IEL
+                altreColiti.iel_count = ielCount;
+                altreColiti.iel_aumentati = ielCount >= 30 ? 'marcati' : 'aumentati';
+                
+                generateSpecimensFromDiagnosi(diagnosiCode);
+            }
+            // Se colite collagenosica, chiedi spessore banda
+            else if (diagnosiCode === 'COLITE_COLLAGENA') {
+                const bandaInput = prompt(
+                    'Inserisci lo spessore della banda collagene (μm):\n\n' +
+                    '(v.n. <10μm, diagnostico ≥10μm, marcato >20μm)',
+                    '15'
+                );
+                
+                if (bandaInput === null) return; // Annullato
+                
+                const bandaUm = parseInt(bandaInput);
+                if (isNaN(bandaUm) || bandaUm < 0 || bandaUm > 100) {
+                    alert('Spessore non valido. Usa un numero da 0 a 100.');
+                    return;
+                }
+                
+                // Setta il valore banda collagene
+                altreColiti.banda_collagene_um = bandaUm;
+                altreColiti.banda_collagene = bandaUm >= 20 ? 'marcata' : 'ispessita';
+                altreColiti.architettura_conservata = true;
+                
+                generateSpecimensFromDiagnosi(diagnosiCode);
+            }
+            else {
                 generateSpecimensFromDiagnosi(diagnosiCode);
             }
             
@@ -2092,6 +2281,8 @@
                                 >
                                     <span class="text-xl">${opt.emoji}</span>
                                     <span class="block text-xs mt-1 font-bold">${opt.label}</span>
+                                    ${opt.codice === 'COLITE_LINFOCITICA' ? '<span class="block text-xs text-purple-600">→ chiede IEL</span>' : ''}
+                                    ${opt.codice === 'COLITE_COLLAGENA' ? '<span class="block text-xs text-purple-600">→ chiede spessore</span>' : ''}
                                 </button>
                             `).join('')}
                         </div>
@@ -2248,6 +2439,104 @@
             `;
         };
 
+        // Form per editing di un campione esistente
+        const EditSpecimenForm = () => {
+            if (editingSpecimenIndex === null || !specimens[editingSpecimenIndex]) return '';
+            
+            const spec = specimens[editingSpecimenIndex];
+            const isIleum = spec.siteType === 'ileum';
+            
+            const findingLabels = {
+                'granulomi_epitelioidi': 'Granulomi epitelioidi',
+                'neutrofili_epitelio': 'Neutrofili epitelio',
+                'neutrofili_lamina_propria': 'Neutrofili LP',
+                'ascessi_criptici': 'Ascessi criptici',
+                'plasmacellule_basale': 'Plasmacellule basale',
+                'distorsione_architettura': 'Distorsione architettura',
+                'erosioni_ulcerazioni': 'Erosioni/ulcerazioni',
+                'metaplasia_paneth': 'Metaplasia Paneth',
+                'ulcerazione': 'Ulcerazione',
+                'fibrosi_sottomucosa': 'Fibrosi sottomucosa',
+                'displasia': 'Displasia',
+                'iperplasia_linfoide': 'Iperplasia linfoide',
+                'edema_lamina_propria': 'Edema LP',
+                'atrofia_villi': 'Atrofia villi',
+                'plasmacellule_aumentate': 'Plasmacellule aumentate'
+            };
+            
+            const findingOptions = {
+                'granulomi_epitelioidi': ['assente', 'presente', 'sospetti'],
+                'neutrofili_epitelio': ['assente', 'lieve', 'moderata', 'marcata'],
+                'neutrofili_lamina_propria': ['assente', 'lieve', 'moderata', 'marcata'],
+                'ascessi_criptici': ['assente', 'presente'],
+                'plasmacellule_basale': ['assente', 'presente'],
+                'distorsione_architettura': ['assente', 'presente'],
+                'erosioni_ulcerazioni': ['assente', 'presente'],
+                'metaplasia_paneth': ['assente', 'presente'],
+                'ulcerazione': ['assente', 'presente'],
+                'fibrosi_sottomucosa': ['assente', 'lieve', 'moderata', 'marcata'],
+                'displasia': ['assente', 'indefinita', 'basso_grado', 'alto_grado'],
+                'iperplasia_linfoide': ['assente', 'presente'],
+                'edema_lamina_propria': ['assente', 'presente'],
+                'atrofia_villi': ['assente', 'lieve', 'moderata', 'marcata'],
+                'plasmacellule_aumentate': ['assente', 'presente']
+            };
+            
+            const findingKeys = isIleum ? [
+                'granulomi_epitelioidi', 'neutrofili_lamina_propria', 
+                'erosioni_ulcerazioni', 'iperplasia_linfoide',
+                'edema_lamina_propria', 'atrofia_villi', 
+                'plasmacellule_aumentate', 'fibrosi_sottomucosa'
+            ] : [
+                'granulomi_epitelioidi', 'neutrofili_epitelio', 'ascessi_criptici',
+                'plasmacellule_basale', 'distorsione_architettura', 
+                'erosioni_ulcerazioni', 'metaplasia_paneth', 'ulcerazione',
+                'fibrosi_sottomucosa', 'displasia'
+            ];
+            
+            return `
+                <div class="bg-amber-50 rounded-lg p-6 mb-6 border-2 border-amber-400">
+                    <h3 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        <span>✏️</span> Modifica: <span class="capitalize">${spec.site}</span>
+                        <span class="text-sm font-normal px-2 py-1 rounded ${isIleum ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">
+                            ${isIleum ? 'Ileo' : 'Colon'}
+                        </span>
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        ${findingKeys.map(key => `
+                            <div>
+                                <label class="block text-sm font-semibold mb-1 ${key === 'displasia' ? 'text-red-700' : ''}">${findingLabels[key]}</label>
+                                <select 
+                                    id="edit-finding-${key}"
+                                    class="w-full p-2 border rounded ${key === 'displasia' ? 'border-red-300' : ''}"
+                                >
+                                    ${findingOptions[key].map(opt => `
+                                        <option value="${opt}" ${spec.findings[key] === opt ? 'selected' : ''}>${opt}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="flex gap-3 mt-6">
+                        <button 
+                            onclick="updateSpecimen()"
+                            class="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700"
+                        >
+                            ✓ Salva modifiche
+                        </button>
+                        <button 
+                            onclick="cancelEdit()"
+                            class="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500"
+                        >
+                            ✕ Annulla
+                        </button>
+                    </div>
+                </div>
+            `;
+        };
+
         const SpecimenList = () => {
             if (specimens.length === 0) {
                 return `<div class="text-center py-8 text-gray-500"><p>Nessun campione inserito</p></div>`;
@@ -2274,28 +2563,14 @@
                 return labels[key] || key;
             };
 
-            // Punto 2 ChatGPT: Banner per findings auto-generati
-            const autoGenBanner = diagnosiVeloce.autoGenerated ? `
-                <div class="bg-red-50 border-2 border-red-400 rounded-lg p-3 mb-4">
-                    <p class="text-red-800 font-semibold text-sm">
-                        ⚠️ FINDINGS AUTO-GENERATI da "${diagnosiVeloce.selected}"
-                    </p>
-                    <p class="text-red-700 text-xs mt-1">
-                        Verificare corrispondenza con vetrino prima di generare il referto.
-                        I findings possono essere modificati cliccando sui singoli campioni.
-                    </p>
-                </div>
-            ` : '';
-
             return `
-                ${autoGenBanner}
                 <div class="space-y-4">
                     ${specimens.map((spec, idx) => {
                         const nancy = spec.siteType !== 'ileum' ? calculateNancyPerSpecimen(spec) : null;
                         const isActive = isSpecimenActive(spec);
                         
                         return `
-                        <div class="bg-white border-2 ${spec.findings.displasia && spec.findings.displasia !== 'assente' ? 'border-red-400' : 'border-gray-300'} rounded-lg p-4">
+                        <div class="bg-white border-2 ${editingSpecimenIndex === idx ? 'border-amber-400 bg-amber-50' : spec.findings.displasia && spec.findings.displasia !== 'assente' ? 'border-red-400' : 'border-gray-300'} rounded-lg p-4">
                             <div class="flex justify-between items-start mb-3">
                                 <div>
                                     <h4 class="font-bold text-lg capitalize">${spec.site}</h4>
@@ -2322,12 +2597,20 @@
                                     </div>
                                 </div>
                                 ${!caseLocked ? `
-                                    <button 
-                                        onclick="removeSpecimen(${idx})"
-                                        class="text-red-600 hover:text-red-800 font-bold"
-                                    >
-                                        ✕ Rimuovi
-                                    </button>
+                                    <div class="flex gap-2">
+                                        <button 
+                                            onclick="editSpecimen(${idx})"
+                                            class="text-blue-600 hover:text-blue-800 font-bold text-sm"
+                                        >
+                                            ✏️ Modifica
+                                        </button>
+                                        <button 
+                                            onclick="removeSpecimen(${idx})"
+                                            class="text-red-600 hover:text-red-800 font-bold text-sm"
+                                        >
+                                            ✕ Rimuovi
+                                        </button>
+                                    </div>
                                 ` : ''}
                             </div>
                             <div class="grid grid-cols-3 gap-2 text-sm">
@@ -2406,6 +2689,76 @@
                                         Compatibile con colite da CMV sovrapposta. 
                                         Correlare con carica virale, inclusioni citomegaliche e contesto clinico. 
                                         Considerare valutazione infettivologica.
+                                    </p>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <!-- COLITI MICROSCOPICHE -->
+                        <div class="border-t pt-4 mt-4">
+                            <h4 class="font-semibold mb-3 text-purple-800">🔬 Coliti Microscopiche</h4>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">Banda collagene:</label>
+                                    <select onchange="updateAltreColiti('banda_collagene', this.value)" class="w-full p-2 border rounded">
+                                        <option value="assente" ${altreColiti.banda_collagene === 'assente' ? 'selected' : ''}>Normale/Assente</option>
+                                        <option value="ispessita" ${altreColiti.banda_collagene === 'ispessita' ? 'selected' : ''}>Ispessita (≥10μm)</option>
+                                        <option value="marcata" ${altreColiti.banda_collagene === 'marcata' ? 'selected' : ''}>Marcatamente ispessita (>20μm)</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold mb-2">IEL:</label>
+                                    <select onchange="updateAltreColiti('iel_aumentati', this.value)" class="w-full p-2 border rounded">
+                                        <option value="assente" ${altreColiti.iel_aumentati === 'assente' ? 'selected' : ''}>Normali</option>
+                                        <option value="aumentati" ${altreColiti.iel_aumentati === 'aumentati' ? 'selected' : ''}>Aumentati (≥20/100)</option>
+                                        <option value="marcati" ${altreColiti.iel_aumentati === 'marcati' ? 'selected' : ''}>Marcatamente aumentati (>30/100)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            ${altreColiti.banda_collagene !== 'assente' ? `
+                                <div class="mt-3">
+                                    <label class="block text-sm font-semibold mb-2">Spessore banda collagene (μm):</label>
+                                    <div class="flex items-center gap-2">
+                                        <input 
+                                            type="number" 
+                                            min="0" 
+                                            max="100"
+                                            value="${altreColiti.banda_collagene_um || ''}"
+                                            onchange="updateAltreColiti('banda_collagene_um', this.value ? parseInt(this.value) : null)"
+                                            class="w-24 p-2 border rounded"
+                                            placeholder="es. 15"
+                                        >
+                                        <span class="text-sm text-gray-600">μm (v.n. &lt;10μm)</span>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${altreColiti.iel_aumentati !== 'assente' ? `
+                                <div class="mt-3">
+                                    <label class="block text-sm font-semibold mb-2">Conta IEL (per 100 cellule epiteliali):</label>
+                                    <div class="flex items-center gap-2">
+                                        <input 
+                                            type="number" 
+                                            min="0" 
+                                            max="100"
+                                            value="${altreColiti.iel_count || ''}"
+                                            onchange="updateAltreColiti('iel_count', this.value ? parseInt(this.value) : null)"
+                                            class="w-24 p-2 border rounded"
+                                            placeholder="es. 35"
+                                        >
+                                        <span class="text-sm text-gray-600">/100 cellule epiteliali (v.n. &lt;20)</span>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            ${altreColiti.banda_collagene !== 'assente' || altreColiti.iel_aumentati !== 'assente' ? `
+                                <div class="mt-3 p-2 bg-purple-100 border border-purple-300 rounded text-sm">
+                                    <p class="text-purple-800">
+                                        ${altreColiti.banda_collagene !== 'assente' ? '📌 Colite collagenosica' : '📌 Colite linfocitica'}
+                                        - Architettura ghiandolare tipicamente conservata
                                     </p>
                                 </div>
                             ` : ''}
@@ -2498,24 +2851,6 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
             if (isNormalMucosa) {
                 return `
                     <div class="space-y-6">
-                        ${report.metadata.simulation ? `
-                            <div class="bg-yellow-100 border-4 border-yellow-500 rounded-lg p-4 text-center">
-                                <p class="text-xl font-bold text-yellow-800">⚠️ SIMULAZIONE DIDATTICA</p>
-                                <p class="text-sm text-yellow-700 mt-1">
-                                    Caso generato automaticamente per training. 
-                                    NON utilizzabile per refertazione clinica.
-                                </p>
-                                <div class="mt-3 flex items-center justify-center gap-2">
-                                    <input type="checkbox" id="confirm-review-normal" 
-                                           ${userConfirmedReview ? 'checked' : ''} 
-                                           onchange="toggleConfirmReview()"
-                                           class="w-5 h-5">
-                                    <label for="confirm-review-normal" class="text-sm font-semibold text-yellow-900 cursor-pointer">
-                                        Ho verificato i reperti sul vetrino
-                                    </label>
-                                </div>
-                            </div>
-                        ` : ''}
                         <div class="bg-white border-2 border-green-400 rounded-lg p-6">
                             <h3 class="text-xl font-bold mb-4 text-green-800">📄 REFERTO ISTOLOGICO</h3>
                             
@@ -2548,6 +2883,9 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                             <button onclick="saveData()" class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700">
                                 💾 Salva
                             </button>
+                            <button onclick="unlockForEdit()" class="bg-amber-500 text-white px-6 py-3 rounded hover:bg-amber-600">
+                                🔓 Modifica
+                            </button>
                         </div>
                     </div>
                 `;
@@ -2556,26 +2894,6 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
             // CASO NORMALE: IBD o altre patologie
             return `
                 <div class="space-y-6">
-                    
-                    ${report.metadata.simulation ? `
-                        <!-- ========== 0. WATERMARK SIMULAZIONE ========== -->
-                        <div class="bg-yellow-100 border-4 border-yellow-500 rounded-lg p-4 text-center">
-                            <p class="text-xl font-bold text-yellow-800">⚠️ SIMULAZIONE DIDATTICA</p>
-                            <p class="text-sm text-yellow-700 mt-1">
-                                Caso generato automaticamente per training. 
-                                NON utilizzabile per refertazione clinica.
-                            </p>
-                            <div class="mt-3 flex items-center justify-center gap-2">
-                                <input type="checkbox" id="confirm-review-ibd" 
-                                       ${userConfirmedReview ? 'checked' : ''} 
-                                       onchange="toggleConfirmReview()"
-                                       class="w-5 h-5">
-                                <label for="confirm-review-ibd" class="text-sm font-semibold text-yellow-900 cursor-pointer">
-                                    Ho verificato i reperti sul vetrino
-                                </label>
-                            </div>
-                        </div>
-                    ` : ''}
                     
                     <!-- ========== 1. REFERTO ISTOLOGICO (PRINCIPALE) ========== -->
                     <div class="bg-white border-2 border-gray-400 rounded-lg p-6">
@@ -2738,10 +3056,10 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                         </div>
                     ` : ''}
 
-                    <!-- ========== 6. NANCY INDEX (solo prima diagnosi UC-like) ========== -->
-                    ${!report.ibdNota.enabled && report.nancy.applicable ? `
-                        <div class="bg-indigo-50 border-2 ${report.nancy.warning ? 'border-amber-400' : 'border-indigo-400'} rounded-lg p-4 no-print">
-                            <h4 class="font-bold mb-2">Nancy Histological Index</h4>
+                    <!-- ========== 6. NANCY INDEX (per UC e follow-up) ========== -->
+                    ${report.nancy.applicable ? `
+                        <div class="bg-indigo-50 border-2 ${report.nancy.warning ? 'border-amber-400' : 'border-indigo-400'} rounded-lg p-4">
+                            <h4 class="font-bold mb-2">Nancy Histological Index${report.ibdNota.enabled ? ' (globale)' : ''}</h4>
                             ${report.nancy.warning ? `
                                 <div class="mb-3 p-2 bg-amber-100 border border-amber-400 rounded text-sm text-amber-800">
                                     ⚠️ ${report.nancy.warning}
@@ -2858,6 +3176,9 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                         <button onclick="saveData()" class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700">
                             💾 Salva
                         </button>
+                        <button onclick="unlockForEdit()" class="bg-amber-500 text-white px-6 py-3 rounded hover:bg-amber-600">
+                            🔓 Modifica
+                        </button>
                     </div>
                 </div>
             `;
@@ -2867,33 +3188,6 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
         
         const switchTab = (tab) => {
             if (caseLocked && (tab === 'campioni' || tab === 'ihc')) return;
-            
-            // Punto 6 ChatGPT: Alert soft se findings auto-generati
-            if (tab === 'referto' && diagnosiVeloce.autoGenerated && !caseLocked) {
-                const diagLabel = diagnosiVeloceOptions.find(o => o.codice === diagnosiVeloce.selected)?.label || diagnosiVeloce.selected;
-                
-                // Determina le feature chiave da verificare in base alla diagnosi
-                let featureChiave = '';
-                if (['PROCTITE_UC', 'COLITE_SINISTRA_UC', 'PANCOLITE_UC'].includes(diagnosiVeloce.selected)) {
-                    featureChiave = '• Plasmacellule basali\n• Distorsione architetturale\n• Neutrofili epiteliali';
-                } else if (['CROHN_LIKE', 'ILEITE_NAS'].includes(diagnosiVeloce.selected)) {
-                    featureChiave = '• Granulomi epitelioidi\n• Erosioni/ulcerazioni\n• Pattern discontinuo';
-                } else if (diagnosiVeloce.selected === 'IBD_REMISSIONE') {
-                    featureChiave = '• Distorsione architetturale residua\n• Assenza di attività neutrofila';
-                } else {
-                    featureChiave = '• Almeno una feature istologica chiave';
-                }
-                
-                const conferma = confirm(
-                    `⚠️ ATTENZIONE: Findings auto-generati\n\n` +
-                    `Diagnosi selezionata: ${diagLabel}\n\n` +
-                    `Prima di procedere, verifica al microscopio:\n${featureChiave}\n\n` +
-                    `Hai confermato le feature chiave sul vetrino?\n\n` +
-                    `OK = Procedi al referto\n` +
-                    `Annulla = Torna a verificare i campioni`
-                );
-                if (!conferma) return;
-            }
             
             activeTab = tab;
             
@@ -2948,6 +3242,64 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
             render();
         };
 
+        const editSpecimen = (index) => {
+            if (caseLocked) return;
+            editingSpecimenIndex = index;
+            render();
+        };
+
+        const cancelEdit = () => {
+            editingSpecimenIndex = null;
+            render();
+        };
+
+        const updateSpecimen = () => {
+            if (caseLocked || editingSpecimenIndex === null) return;
+            
+            const spec = specimens[editingSpecimenIndex];
+            const isIleum = spec.siteType === 'ileum';
+            
+            const findingKeys = isIleum ? [
+                'granulomi_epitelioidi', 'neutrofili_lamina_propria', 
+                'erosioni_ulcerazioni', 'iperplasia_linfoide',
+                'edema_lamina_propria', 'atrofia_villi', 
+                'plasmacellule_aumentate', 'fibrosi_sottomucosa'
+            ] : [
+                'granulomi_epitelioidi', 'neutrofili_epitelio', 'ascessi_criptici',
+                'plasmacellule_basale', 'distorsione_architettura', 
+                'erosioni_ulcerazioni', 'metaplasia_paneth', 'ulcerazione',
+                'fibrosi_sottomucosa', 'displasia'
+            ];
+            
+            const newFindings = {};
+            findingKeys.forEach(key => {
+                const el = document.getElementById(`edit-finding-${key}`);
+                if (el) newFindings[key] = el.value;
+            });
+            
+            // Aggiorna il campione
+            specimens[editingSpecimenIndex].findings = newFindings;
+            
+            // Ricalcola mucin granuloma
+            if (newFindings.granulomi_epitelioidi === 'presente') {
+                const hasActiveMucosal = 
+                    newFindings.neutrofili_epitelio === 'moderata' || 
+                    newFindings.neutrofili_epitelio === 'marcata' ||
+                    newFindings.ascessi_criptici === 'presente' ||
+                    newFindings.ulcerazione === 'presente';
+                specimens[editingSpecimenIndex].mucinGranulomaLikely = hasActiveMucosal;
+            } else {
+                specimens[editingSpecimenIndex].mucinGranulomaLikely = false;
+            }
+            
+            // Reset editing e flag auto-generati
+            editingSpecimenIndex = null;
+            diagnosiVeloce.autoGenerated = false;
+            
+            saveData();
+            render();
+        };
+
         const updateIHC = (field, value) => {
             if (caseLocked) return;
             ihcData[field] = value;
@@ -2972,13 +3324,6 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
 
         const copyReferto = () => {
             const report = generateReport();
-            
-            // ChatGPT: blocca copia se simulazione non confermata
-            if (report.metadata.simulation && !userConfirmedReview) {
-                alert('⚠️ Prima di copiare il referto, conferma di aver verificato i reperti sul vetrino spuntando la checkbox.');
-                return;
-            }
-            
             const isNormal = report.interpretation.level === 'normale';
             
             let testo = '';
@@ -3012,12 +3357,23 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                 // Prima diagnosi
                 testo = `${report.interpretation.headline}\n`;
                 testo += `${report.interpretation.description}\n\n`;
+                
+                // Aggiungi Nancy globale se applicabile
+                if (report.nancy.applicable) {
+                    testo += `Nancy Histological Index: ${report.nancy.score}/4 - ${report.nancy.interpretation.label}\n`;
+                    testo += `${report.nancy.interpretation.description}\n\n`;
+                }
+                
                 testo += `Dettaglio per sede:\n`;
                 specimens.forEach(s => {
                     const active = isSpecimenActive(s);
+                    const nancy = s.siteType !== 'ileum' ? calculateNancyPerSpecimen(s) : null;
                     const stato = active ? 'Attiva' : 'Quiescente';
                     const displasia = s.findings.displasia || 'assente';
                     testo += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${stato}`;
+                    if (report.nancy.applicable && nancy !== null) {
+                        testo += `, Nancy ${nancy}`;
+                    }
                     if (displasia !== 'assente') {
                         testo += `, displasia ${displasia}`;
                     }
@@ -3113,8 +3469,12 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                         </div>
                     `;
                 } else {
-                    // v3.0.5: DiagnosiVeloce ora integrata nel workflow SpecimenForm
-                    tabContent = ResetButton() + IbdNotaPanel() + SpecimenForm() + SpecimenList();
+                    // Se in editing, mostra form di modifica
+                    if (editingSpecimenIndex !== null) {
+                        tabContent = ResetButton() + IbdNotaPanel() + EditSpecimenForm() + SpecimenList();
+                    } else {
+                        tabContent = ResetButton() + IbdNotaPanel() + SpecimenForm() + SpecimenList();
+                    }
                 }
             } else if (activeTab === 'ihc') {
                 tabContent = IHCPanel();
@@ -3129,19 +3489,23 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
         window.acceptDisclaimer = acceptDisclaimer;
         window.addSpecimen = addSpecimen;
         window.removeSpecimen = removeSpecimen;
+        window.editSpecimen = editSpecimen;
+        window.updateSpecimen = updateSpecimen;
+        window.cancelEdit = cancelEdit;
         window.clearData = clearData;
         window.saveData = saveData;
         window.switchTab = switchTab;
         window.updateFormSite = updateFormSite;
         window.updateIHC = updateIHC;
+        window.updateAltreColiti = updateAltreColiti;
         window.toggleIbdNota = toggleIbdNota;
         window.updateIbdNota = updateIbdNota;
         window.copySintesi = copySintesi;
-        window.updateAltreColiti = updateAltreColiti;
         window.selectDiagnosiVeloce = selectDiagnosiVeloce;
         window.clearDiagnosiVeloce = clearDiagnosiVeloce;
         window.updateGradoManuale = updateGradoManuale;
         window.unlockCase = unlockCase;
+        window.unlockForEdit = unlockForEdit;
         window.confirmReset = confirmReset;
         window.toggleMucinCheckbox = toggleMucinCheckbox;
         window.toggleMucinCheckboxSingle = toggleMucinCheckboxSingle;
@@ -3154,12 +3518,6 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
         window.addAllNormalSpecimens = addAllNormalSpecimens;
         window.applyDiagnosiVeloce = applyDiagnosiVeloce;
         window.copyReferto = copyReferto;
-        
-        // ChatGPT: toggle conferma verifica vetrino
-        window.toggleConfirmReview = () => {
-            userConfirmedReview = !userConfirmedReview;
-            render();
-        };
 
         // ==================== INIT ====================
         loadData();
@@ -3169,9 +3527,9 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
 
     <!-- Footer -->
     <div class="max-w-6xl mx-auto mt-8 text-xs text-gray-600 text-center p-4 bg-gray-100 rounded">
-        <p class="font-semibold mb-2">IBD Diagnostic Tool v3.0.7 "Epistemic Guard"</p>
+        <p class="font-semibold mb-2">IBD Diagnostic Tool v3.0.8 "Lean Expert"</p>
         <p class="mb-1">
-            <strong>v3.0.7:</strong> Checkbox verifica vetrino, Nancy con warning, skip lesions smart. v3.0.6: Watermark simulazione, IBDU fix, nota biopsia mucosa. v3.0.5: Griglia selezione sedi + "Seleziona Tutti" (7 sedi standard)
+            <strong>v3.0.8:</strong> Lean expert, alert ridotti. v3.0.7: Nancy con warning, skip lesions smart. v3.0.6: Watermark simulazione, IBDU fix, nota biopsia mucosa. v3.0.5: Griglia selezione sedi + "Seleziona Tutti" (7 sedi standard)
         </p>
         <p class="text-gray-500 text-xs mt-2">
             Release: Febbraio 2026 | Pouch e anastomosi separati come "Casi Speciali"
