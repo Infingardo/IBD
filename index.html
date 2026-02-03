@@ -3346,77 +3346,120 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
             const report = generateReport();
             const isNormal = report.interpretation.level === 'normale';
             
-            let testo = '';
+            let plainText = '';
+            let html = '<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6;">';
             
             if (isNormal) {
                 // Referto normale
-                testo = `${report.interpretation.headline}\n`;
-                testo += `${report.interpretation.description}\n\n`;
-                testo += `Sedi esaminate: ${specimens.map(s => s.site.charAt(0).toUpperCase() + s.site.slice(1)).join(', ')}`;
+                plainText = `${report.interpretation.headline}\n`;
+                plainText += `${report.interpretation.description}\n\n`;
+                plainText += `Sedi esaminate: ${specimens.map(s => s.site.charAt(0).toUpperCase() + s.site.slice(1)).join(', ')}`;
+                
+                html += `<p style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${report.interpretation.headline}</p>`;
+                html += `<p style="margin-bottom: 12px;">${report.interpretation.description}</p>`;
+                html += `<p>Sedi esaminate: ${specimens.map(s => s.site.charAt(0).toUpperCase() + s.site.slice(1)).join(', ')}</p>`;
             } else if (report.ibdNota.enabled && report.ibdNota.diagnosiAttuale) {
                 // Follow-up IBD
                 const diagnosi = report.ibdNota.diagnosiAttuale === 'RCU' ? 'rettocolite ulcerosa' : 
                                  report.ibdNota.diagnosiAttuale === 'Crohn' ? 'malattia di Crohn' : 'IBD non classificata';
-                testo = `Quadro istologico di IBD compatibile, alla luce della storia clinica, con ${diagnosi}.\n\n`;
-                testo += `Dettaglio per sede:\n`;
+                plainText = `Quadro istologico di IBD compatibile, alla luce della storia clinica, con ${diagnosi}.\n\n`;
+                plainText += `Dettaglio per sede:\n`;
+                
+                html += `<p style="margin-bottom: 12px;">Quadro istologico di IBD compatibile, alla luce della storia clinica, con <strong>${diagnosi}</strong>.</p>`;
+                html += `<p style="margin-bottom: 8px;"><strong>Dettaglio per sede:</strong></p><ul style="margin-top: 0;">`;
+                
                 specimens.forEach(s => {
                     const nancy = s.siteType !== 'ileum' ? calculateNancyPerSpecimen(s) : null;
                     const active = isSpecimenActive(s);
                     const stato = active ? 'Attiva' : 'Quiescente';
                     const displasia = s.findings.displasia || 'assente';
-                    testo += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${stato}`;
+                    plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${stato}`;
+                    html += `<li><strong>${s.site.charAt(0).toUpperCase() + s.site.slice(1)}:</strong> ${stato}`;
                     if (report.ibdNota.diagnosiAttuale === 'RCU' && nancy !== null) {
-                        testo += `, Nancy ${nancy}`;
+                        plainText += `, Nancy ${nancy}`;
+                        html += `, Nancy ${nancy}`;
                     }
                     if (displasia !== 'assente') {
-                        testo += `, displasia ${displasia}`;
+                        plainText += `, displasia ${displasia}`;
+                        html += `, displasia ${displasia}`;
                     }
-                    testo += `\n`;
+                    plainText += `\n`;
+                    html += `</li>`;
                 });
+                html += `</ul>`;
             } else {
                 // Prima diagnosi
-                testo = `${report.interpretation.headline}\n`;
-                testo += `${report.interpretation.description}\n\n`;
+                plainText = `${report.interpretation.headline}\n`;
+                plainText += `${report.interpretation.description}\n\n`;
+                
+                html += `<p style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${report.interpretation.headline}</p>`;
+                html += `<p style="margin-bottom: 8px;">${report.interpretation.description}</p>`;
                 
                 // Aggiungi Nancy globale se applicabile
                 if (report.nancy.applicable) {
-                    testo += `Nancy Histological Index (Marchal-Bressenot et al. Gut 2017): ${report.nancy.score}/4 - ${report.nancy.interpretation.label}\n`;
-                    testo += `${report.nancy.interpretation.description}\n\n`;
+                    plainText += `Nancy Histological Index (Marchal-Bressenot et al. Gut 2017): ${report.nancy.score}/4 - ${report.nancy.interpretation.label}\n`;
+                    plainText += `${report.nancy.interpretation.description}\n\n`;
+                    
+                    html += `<p style="margin-bottom: 8px;">Nancy Histological Index (Marchal-Bressenot et al. Gut 2017): <strong>${report.nancy.score}/4</strong> - ${report.nancy.interpretation.label}</p>`;
+                    html += `<p style="margin-bottom: 12px; font-size: 13px; color: #555;">${report.nancy.interpretation.description}</p>`;
                 }
                 
-                testo += `Dettaglio per sede:\n`;
+                plainText += `Dettaglio per sede:\n`;
+                html += `<p style="margin-bottom: 8px;"><strong>Dettaglio per sede:</strong></p><ul style="margin-top: 0;">`;
+                
                 specimens.forEach(s => {
                     const active = isSpecimenActive(s);
                     const nancy = s.siteType !== 'ileum' ? calculateNancyPerSpecimen(s) : null;
                     const stato = active ? 'Attiva' : 'Quiescente';
                     const displasia = s.findings.displasia || 'assente';
-                    testo += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${stato}`;
+                    plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${stato}`;
+                    html += `<li><strong>${s.site.charAt(0).toUpperCase() + s.site.slice(1)}:</strong> ${stato}`;
                     if (report.nancy.applicable && nancy !== null) {
-                        testo += `, Nancy ${nancy}`;
+                        plainText += `, Nancy ${nancy}`;
+                        html += `, Nancy ${nancy}`;
                     }
                     if (displasia !== 'assente') {
-                        testo += `, displasia ${displasia}`;
+                        plainText += `, displasia ${displasia}`;
+                        html += `, displasia ${displasia}`;
                     }
-                    testo += `\n`;
+                    plainText += `\n`;
+                    html += `</li>`;
                 });
+                html += `</ul>`;
             }
             
             // Aggiungi alert displasia se presente
             if (report.dysplasiaReport) {
-                testo += `\n⚠️ DISPLASIA RILEVATA: ${report.dysplasiaReport.maxGrade}\n`;
+                plainText += `\n⚠️ DISPLASIA RILEVATA: ${report.dysplasiaReport.maxGrade}\n`;
+                html += `<p style="margin-top: 12px; color: #dc2626; font-weight: bold;">⚠️ DISPLASIA RILEVATA: ${report.dysplasiaReport.maxGrade}</p>`;
             }
             
-            navigator.clipboard.writeText(testo).then(() => {
-                alert('✅ Referto copiato negli appunti!');
+            html += '</div>';
+            
+            // Copia con formattazione (HTML + plain text)
+            const htmlBlob = new Blob([html], { type: 'text/html' });
+            const textBlob = new Blob([plainText], { type: 'text/plain' });
+            
+            const clipboardItem = new ClipboardItem({
+                'text/html': htmlBlob,
+                'text/plain': textBlob
+            });
+            
+            navigator.clipboard.write([clipboardItem]).then(() => {
+                alert('✅ Referto copiato con formattazione!');
             }).catch(() => {
-                // Fallback
-                const tempTextarea = document.createElement('textarea');
-                tempTextarea.value = testo;
-                document.body.appendChild(tempTextarea);
-                tempTextarea.select();
-                document.execCommand('copy');
-                document.body.removeChild(tempTextarea);
-                alert('✅ Referto copiato!');
+                // Fallback per browser vecchi: copia solo testo
+                navigator.clipboard.writeText(plainText).then(() => {
+                    alert('✅ Referto copiato (solo testo)!');
+                }).catch(() => {
+                    const tempTextarea = document.createElement('textarea');
+                    tempTextarea.value = plainText;
+                    document.body.appendChild(tempTextarea);
+                    tempTextarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempTextarea);
+                    alert('✅ Referto copiato!');
+                });
             });
         };
 
