@@ -1896,8 +1896,20 @@
                         if (isIleum) {
                             findings = { ...DEFAULT_ILEUM_FINDINGS };
                         } else {
-                            // Usa Nancy grade se fornito, altrimenti remissione default
-                            findings = nancyGrade !== null ? getUCActiveFindings(nancyGrade) : getUCRemissionFindings();
+                            // Logica Nancy Index stratificata
+                            if (nancyGrade === 0) {
+                                // Nancy 0: mucosa normale (raro in remissione)
+                                findings = { ...DEFAULT_COLON_FINDINGS };
+                            } else if (nancyGrade === 1) {
+                                // Nancy 1: remissione con alterazioni croniche (TIPICO)
+                                findings = getUCRemissionFindings();
+                            } else if (nancyGrade !== null && nancyGrade >= 2) {
+                                // Nancy 2-4: attività persistente
+                                findings = getUCActiveFindings(nancyGrade);
+                            } else {
+                                // Nessun Nancy specificato: default remissione (Nancy 1)
+                                findings = getUCRemissionFindings();
+                            }
                         }
                         break;
                         
@@ -2064,16 +2076,31 @@
             
             // Se diagnosi richiede Nancy, chiedi il grado
             if (DIAGNOSI_CON_NANCY.includes(diagnosiCode)) {
-                const defaultNancy = diagnosiCode === 'IBD_REMISSIONE' ? '1' : '2';
-                const nancyInput = prompt(
-                    'Inserisci il grado Nancy (0-4):\n\n' +
-                    '0 = Remissione completa (mucosa normale)\n' +
-                    '1 = Remissione con alterazioni croniche\n' +
-                    '2 = Attività lieve\n' +
-                    '3 = Attività moderata (ascessi criptici)\n' +
-                    '4 = Attività severa (ulcerazione)',
-                    defaultNancy
-                );
+                let promptText, defaultNancy;
+                
+                if (diagnosiCode === 'IBD_REMISSIONE') {
+                    // Prompt specifico per remissione
+                    defaultNancy = '1';
+                    promptText = 
+                        'Inserisci il grado Nancy (0-4):\n\n' +
+                        '0 = Remissione completa (mucosa normale - considera "NORMALE")\n' +
+                        '1 = Remissione con alterazioni croniche (TIPICO) ⭐\n' +
+                        '2 = Remissione parziale con attività lieve residua\n' +
+                        '3 = Attività moderata residua\n' +
+                        '4 = Attività severa (non è remissione)';
+                } else {
+                    // Prompt standard per UC attiva
+                    defaultNancy = '2';
+                    promptText = 
+                        'Inserisci il grado Nancy (0-4):\n\n' +
+                        '0 = Remissione completa (mucosa normale)\n' +
+                        '1 = Remissione con alterazioni croniche\n' +
+                        '2 = Attività lieve\n' +
+                        '3 = Attività moderata (ascessi criptici)\n' +
+                        '4 = Attività severa (ulcerazione)';
+                }
+                
+                const nancyInput = prompt(promptText, defaultNancy);
                 
                 if (nancyInput === null) return; // Annullato
                 
@@ -3060,6 +3087,7 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                     ${report.nancy.applicable ? `
                         <div class="bg-indigo-50 border-2 ${report.nancy.warning ? 'border-amber-400' : 'border-indigo-400'} rounded-lg p-4">
                             <h4 class="font-bold mb-2">Nancy Histological Index${report.ibdNota.enabled ? ' (globale)' : ''}</h4>
+                            <p class="text-xs text-indigo-600 mb-2">📚 Marchal-Bressenot A et al. Gut 2017;66:43-49</p>
                             ${report.nancy.warning ? `
                                 <div class="mb-3 p-2 bg-amber-100 border border-amber-400 rounded text-sm text-amber-800">
                                     ⚠️ ${report.nancy.warning}
@@ -3360,7 +3388,7 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                 
                 // Aggiungi Nancy globale se applicabile
                 if (report.nancy.applicable) {
-                    testo += `Nancy Histological Index: ${report.nancy.score}/4 - ${report.nancy.interpretation.label}\n`;
+                    testo += `Nancy Histological Index (Marchal-Bressenot et al. Gut 2017): ${report.nancy.score}/4 - ${report.nancy.interpretation.label}\n`;
                     testo += `${report.nancy.interpretation.description}\n\n`;
                 }
                 
