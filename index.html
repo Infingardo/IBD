@@ -2941,6 +2941,26 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                             </div>
                         `}
 
+                        <!-- NANCY INDEX (spostato qui per visibilità) -->
+                        ${report.nancy.applicable ? `
+                            <div class="bg-indigo-50 border-2 ${report.nancy.warning ? 'border-amber-400' : 'border-indigo-400'} rounded-lg p-4 mb-4">
+                                <h4 class="font-bold mb-2">Nancy Histological Index${report.ibdNota.enabled ? ' (globale)' : ''}</h4>
+                                <p class="text-xs text-indigo-600 mb-2">📚 Marchal-Bressenot A et al. Gut 2017;66:43-49</p>
+                                ${report.nancy.warning ? `
+                                    <div class="mb-3 p-2 bg-amber-100 border border-amber-400 rounded text-sm text-amber-800">
+                                        ⚠️ ${report.nancy.warning}
+                                    </div>
+                                ` : ''}
+                                <div class="flex items-center gap-4">
+                                    <span class="text-3xl font-bold text-indigo-700">${report.nancy.score}/4</span>
+                                    <div>
+                                        <p class="font-semibold">${report.nancy.interpretation.label}</p>
+                                        <p class="text-xs text-gray-600">${report.nancy.interpretation.description}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : ''}
+
                         <div class="mb-4">
                             <h4 class="font-semibold mb-2">Dettaglio per sede:</h4>
                             <table class="w-full text-sm border-collapse">
@@ -3083,25 +3103,7 @@ ${sintesi.hasDisplasia ? `⚠️ DISPLASIA: ${sintesi.maxDisplasia} (${sintesi.d
                         </div>
                     ` : ''}
 
-                    <!-- ========== 6. NANCY INDEX (per UC e follow-up) ========== -->
-                    ${report.nancy.applicable ? `
-                        <div class="bg-indigo-50 border-2 ${report.nancy.warning ? 'border-amber-400' : 'border-indigo-400'} rounded-lg p-4">
-                            <h4 class="font-bold mb-2">Nancy Histological Index${report.ibdNota.enabled ? ' (globale)' : ''}</h4>
-                            <p class="text-xs text-indigo-600 mb-2">📚 Marchal-Bressenot A et al. Gut 2017;66:43-49</p>
-                            ${report.nancy.warning ? `
-                                <div class="mb-3 p-2 bg-amber-100 border border-amber-400 rounded text-sm text-amber-800">
-                                    ⚠️ ${report.nancy.warning}
-                                </div>
-                            ` : ''}
-                            <div class="flex items-center gap-4">
-                                <span class="text-3xl font-bold text-indigo-700">${report.nancy.score}/4</span>
-                                <div>
-                                    <p class="font-semibold">${report.nancy.interpretation.label}</p>
-                                    <p class="text-xs text-gray-600">${report.nancy.interpretation.description}</p>
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
+
 
                     <!-- ========== 6.5 ALERT CRITICI STAMPABILI ========== -->
                     ${(() => {
