@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v3.1.1 "Wizard fix"</title>
+    <title>IBD Diagnostic Tool v3.1.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, body *, h1, h2, h3, h4, h5, h6, p, div, span, td, th, li, button, input, select {
@@ -137,7 +137,7 @@
                 </div>
                 <div class="bg-gray-100 p-3 rounded">
                     <p class="text-xs text-gray-700 italic">
-                        v3.1.0: Wizard sede-per-sede · Nancy solo RCU follow-up · Scoring qualitativo (no percentuali)
+                        v3.1.2: Fix topografico pouch · FAC per sede · versioning allineato · Nancy solo RCU follow-up · Scoring qualitativo (no percentuali)
                     </p>
                 </div>
             </div>
@@ -183,13 +183,13 @@
         <!-- Header -->
         <div class="mb-4 border-b pb-4">
             <h1 class="text-3xl font-bold text-blue-900 mb-2">
-                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.1.1 "Wizard fix"</span>
+                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.1.2</span>
             </h1>
             <p class="text-sm text-gray-600">
                 Supporto diagnosi differenziale Malattie Infiammatorie Croniche Intestinali
             </p>
             <p class="text-xs text-gray-500 mt-1">
-                v3.1.0: Wizard sede-per-sede · Nancy Index limitato a RCU nota in follow-up · Scoring qualitativo senza percentuali
+                v3.1.2: Fix topografico pouch · FAC per sede · versioning allineato · Nancy Index limitato a RCU nota in follow-up · Scoring qualitativo senza percentuali
             </p>
         </div>
 
@@ -230,7 +230,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '3.0.9';
+        const APP_VERSION = '3.1.2';
         const STORAGE_KEY = 'ibdAppDataV310';
         const DISCLAIMER_KEY = 'ibdDisclaimerAccepted';
 
@@ -373,10 +373,13 @@
                 warning: null
             };
             const colonOrder = ['cieco','ascendente','trasverso','discendente','sigma','retto'];
+            // pouch e anastomosi esclusi dall'analisi topografica (sedi speciali post-chirurgiche)
             const findingsIndices = sitesWithFindings
                 .filter(s => colonOrder.includes(s))
                 .map(s => colonOrder.indexOf(s))
                 .sort((a,b) => a-b);
+            // se ci sono siti speciali, disabilita warning topografico
+            const hasSpecialSites = specimens.some(s => SPECIAL_SITES.includes(s.site));
             if (findingsIndices.length >= 2) {
                 for (let i = 1; i < findingsIndices.length; i++) {
                     const gap = findingsIndices[i] - findingsIndices[i-1];
@@ -392,7 +395,9 @@
                 }
             }
             pattern.continuity = pattern.skipLesions ? 'discontinua' : (pattern.skipLesionsIndeterminate ? 'indeterminabile' : 'continua');
-            if (pattern.rectumSampled && pattern.rectumInvolved && !pattern.skipLesions && !pattern.ileumInvolved) {
+            if (hasSpecialSites) {
+                pattern.warning = "ℹ️ Sedi speciali (pouch/anastomosi): analisi topografica standard non applicabile.";
+            } else if (pattern.rectumSampled && pattern.rectumInvolved && !pattern.skipLesions && !pattern.ileumInvolved) {
                 pattern.warning = "⚠️ Pattern topografico RCU-like: retto coinvolto, distribuzione continua, ileo non coinvolto";
             } else if (pattern.skipLesionsIndeterminate) {
                 pattern.warning = "⚠️ Campionamento incompleto: continuità/discontinuità NON valutabile. Completare mapping endoscopico.";
@@ -471,11 +476,11 @@
                 nancyScore = hasChronicChanges ? 1 : 0;
             }
             const interpretations = {
-                0: { label: 'Remissione completa', description: 'Assenza di attività e alterazioni croniche', prognosis: 'Eccellente. Basso rischio recidiva.' },
-                1: { label: 'Remissione con alterazioni croniche', description: 'Alterazioni architetturali senza attività acuta', prognosis: 'Buona. Rischio recidiva moderato.' },
-                2: { label: 'Attività lieve', description: 'Infiltrato neutrofilo lieve senza ulcerazione', prognosis: 'Rischio recidiva aumentato. Monitoraggio clinico.' },
-                3: { label: 'Attività moderata', description: 'Infiltrato neutrofilo moderato-severo o ascessi criptici', prognosis: 'Rischio recidiva elevato. Considerare escalation terapeutica.' },
-                4: { label: 'Attività severa con ulcerazione', description: 'Ulcerazione mucosa presente', prognosis: 'Rischio recidiva molto elevato. Terapia intensiva necessaria.' }
+                0: { label: 'Remissione completa', description: 'Assenza di attività e alterazioni croniche' },
+                1: { label: 'Remissione con alterazioni croniche', description: 'Alterazioni architetturali senza attività acuta' },
+                2: { label: 'Attività lieve', description: 'Infiltrato neutrofilo lieve senza ulcerazione' },
+                3: { label: 'Attività moderata', description: 'Infiltrato neutrofilo moderato-severo o ascessi criptici' },
+                4: { label: 'Attività severa con ulcerazione', description: 'Ulcerazione mucosa presente' }
             };
             return {
                 score: nancyScore,
@@ -839,6 +844,7 @@
             { codice: 'IBD_REMISSIONE', emoji: '🟡', label: 'IBD in remissione', testo: 'Colite cronica in fase di remissione istologica. Persistono alterazioni architetturali residue. Assenza di attività infiammatoria acuta.', gruppo: 'ibd' },
             { codice: 'ILEITE_NAS', emoji: '🟠', label: 'Ileite NAS', testo: 'Ileite cronica attiva. Pattern aspecifico, da correlare con dati clinici ed endoscopici.', gruppo: 'ibd' },
             { codice: 'CROHN_LIKE', emoji: '🟣', label: 'Crohn probabile', testo: 'Colite cronica attiva con pattern morfologico suggestivo per malattia di Crohn. Correlare con clinica ed endoscopia.', gruppo: 'ibd' },
+            { codice: 'COLITE_CRONICA_ASPECIFICA', emoji: '🔲', label: 'Colite cr. aspecifica', testo: 'Mucosa del grosso intestino contrassegnata da struttura ghiandolare conservata, attività mucipara conservata, infiltrato linfoplasmacellulare lievemente aumentato. Quadro di colite cronica di grado lieve, quiescente, esente da caratteristiche di specificità.', gruppo: 'altre' },
             { codice: 'COLITE_COLLAGENA', emoji: '🔬', label: 'Colite collagenosica', testo: 'Colite microscopica, tipo collagenosica. Banda collagene subepiteliale ispessita (≥10μm). Architettura ghiandolare conservata.', gruppo: 'altre' },
             { codice: 'COLITE_LINFOCITICA', emoji: '🔬', label: 'Colite Linfocitica', testo: 'Colite microscopica, tipo linfocitica. Linfociti intraepiteliali aumentati (≥20/100 cellule epiteliali). Architettura ghiandolare conservata.', gruppo: 'altre' },
             { codice: 'COLITE_INFETTIVA', emoji: '🦠', label: 'Colite Infettiva', testo: 'Colite acuta con pattern superficiale e architettura conservata, compatibile con eziologia infettiva.', gruppo: 'altre' },
@@ -848,7 +854,26 @@
         ];
 
         const DIAGNOSI_CON_NANCY = ['PROCTITE_UC', 'COLITE_SINISTRA_UC', 'PANCOLITE_UC', 'IBD_REMISSIONE'];
+        // Diagnosi che bypassano lo scoring e usano il testo preconfezionato direttamente
+        const DIAGNOSI_TESTO_FISSO = ['COLITE_COLLAGENA','COLITE_LINFOCITICA','COLITE_INFETTIVA','COLITE_ISCHEMICA','COLITE_FANS','SCAD','COLITE_CRONICA_ASPECIFICA'];
         const STANDARD_SITES = ['ileo', 'cieco', 'ascendente', 'trasverso', 'discendente', 'sigma', 'retto'];
+        const SITE_LABELS = {
+            ileo: 'Ileo', cieco: 'Cieco', ascendente: 'Colon ascendente',
+            trasverso: 'Colon trasverso', discendente: 'Colon discendente',
+            sigma: 'Sigma', retto: 'Retto', pouch: 'Pouch', anastomosi: 'Anastomosi'
+        };
+        const formatFacNote = (specimenList) => {
+            const facSedi = specimenList.filter(s => s.facPresente && s.siteType !== 'ileum').map(s => SITE_LABELS[s.site] || s.site);
+            if (facSedi.length === 0) return null;
+            return `Colite attiva focale (FAC) rilevata in: ${facSedi.join(', ')}. Reperto aspecifico; correlazione clinico-endoscopica e anamnesi farmacologica raccomandate.`;
+        };
+
+        const formatSediCampionate = (specimenList) => {
+            const sedi = specimenList.map(s => SITE_LABELS[s.site] || s.site);
+            const tutteCanoniche = STANDARD_SITES.every(s => specimenList.some(sp => sp.site === s))
+                && specimenList.length === STANDARD_SITES.length;
+            return tutteCanoniche ? null : 'Sedi campionate: ' + sedi.join(', ') + '.';
+        };
         const SPECIAL_SITES = ['pouch', 'anastomosi'];
         const LEFT_EXTENDED_SITES = ['discendente', 'sigma', 'retto'];
 
@@ -944,6 +969,8 @@
                         if (isIleum) findings = { ...DEFAULT_ILEUM_FINDINGS };
                         else if (site === 'sigma') { findings = { ...DEFAULT_COLON_FINDINGS }; findings.distorsione_architettura = 'presente'; findings.neutrofili_epitelio = 'lieve'; }
                         else findings = { ...DEFAULT_COLON_FINDINGS }; break;
+                    case 'COLITE_CRONICA_ASPECIFICA':
+                        findings = isIleum ? { ...DEFAULT_ILEUM_FINDINGS } : { ...DEFAULT_COLON_FINDINGS, plasmacellule_basale: 'presente' }; break;
                     default: findings = isIleum ? { ...DEFAULT_ILEUM_FINDINGS } : { ...DEFAULT_COLON_FINDINGS };
                 }
                 specimens.push({ site, findings, siteType: isIleum ? 'ileum' : 'colon', mucinGranulomaLikely: false });
@@ -1131,7 +1158,8 @@
             const findings = {};
             keys.forEach(k => { const el = document.getElementById(`finding-${wizardSiteIndex}-${k}`); if (el) findings[k] = el.value; });
             const mucinCb = document.getElementById(`mucin-granuloma-checkbox-${wizardSiteIndex}`);
-            wizardData[wizardSiteIndex] = { findings, mucinGranulomaLikely: (mucinCb && mucinCb.checked) || false };
+            const facCb = document.getElementById(`fac-checkbox-${wizardSiteIndex}`);
+            wizardData[wizardSiteIndex] = { findings, mucinGranulomaLikely: (mucinCb && mucinCb.checked) || false, facPresente: (facCb && facCb.checked) || false };
         };
         const wizardNext = () => { wizardSaveCurrent(); if (wizardSiteIndex < selectedSites.length - 1) { wizardSiteIndex++; render(); } };
         const wizardPrev = () => { wizardSaveCurrent(); if (wizardSiteIndex > 0) { wizardSiteIndex--; render(); } };
@@ -1157,7 +1185,7 @@
                         : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
                     findingKeys.forEach(key => { const el = document.getElementById(`finding-${siteIndex}-${key}`); if (el) findings[key] = el.value; });
                 }
-                specimens.push({ site, findings, siteType: isIleum ? 'ileum' : 'colon', mucinGranulomaLikely: saved.mucinGranulomaLikely || false });
+                specimens.push({ site, findings, siteType: isIleum ? 'ileum' : 'colon', mucinGranulomaLikely: saved.mucinGranulomaLikely || false, facPresente: saved.facPresente || false });
             });
             multiSiteMode = false; wizardSiteIndex = 0; wizardData = {}; siteSelectionDone = false; selectedSites = [];
             saveData(); render();
@@ -1424,6 +1452,15 @@
                         <span class="text-xs px-2 py-1 rounded ${isIleum ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${isIleum ? 'Criteri ILEO' : 'Criteri COLON'}</span>
                     </h4>
                     <div class="grid grid-cols-2 gap-3">${renderFindings(site, idx)}</div>
+                    ${!isIleum ? `
+                    <div class="mt-3 bg-orange-50 border border-orange-300 rounded-lg p-3">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="fac-checkbox-${idx}" class="w-4 h-4 accent-orange-600"
+                                ${(wizardData[idx] && wizardData[idx].facPresente) ? 'checked' : ''}>
+                            <span class="text-sm font-semibold text-orange-900">🔬 Colite attiva focale (FAC) presente in questa sede</span>
+                        </label>
+                        <p class="text-xs text-orange-700 mt-1">Almeno una cripta con infiltrato neutrofilo, architettura conservata, senza cronicità</p>
+                    </div>` : ''}
                 </div>
 
                 <!-- Navigazione -->
@@ -1452,6 +1489,7 @@
             return `<div class="space-y-4">
                 ${specimens.map((spec, idx) => {
                     const nancy = (shouldShowNancy() && spec.siteType !== 'ileum') ? calculateNancyPerSpecimen(spec) : null;
+                    const hasFac = spec.facPresente === true;
                     const isActive = isSpecimenActive(spec);
                     return `<div class="bg-white border-2 ${spec.findings.displasia && spec.findings.displasia !== 'assente' ? 'border-red-400' : 'border-gray-300'} rounded-lg p-4">
                         <div class="flex justify-between items-start mb-3">
@@ -1459,7 +1497,6 @@
                                 <h4 class="font-bold text-lg capitalize">${spec.site}</h4>
                                 <div class="flex gap-2 mt-1 flex-wrap">
                                     <span class="text-xs px-2 py-1 rounded ${spec.siteType === 'ileum' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${spec.siteType === 'ileum' ? '🔬 Ileo' : '🔬 Colon'}</span>
-                                    ${nancy !== null ? `<span class="text-xs px-2 py-1 rounded ${nancy >= 2 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">Nancy: ${nancy}</span>` : ''}
                                     <span class="text-xs px-2 py-1 rounded ${isActive ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${isActive ? '🔥 Attiva' : '✓ Quiescente'}</span>
                                     ${spec.mucinGranulomaLikely ? `<span class="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700">⚠️ Mucin granuloma?</span>` : ''}
                                 </div>
@@ -1667,6 +1704,10 @@
                                 <strong>${report.ibdNota.diagnosiAttuale === 'RCU' ? 'rettocolite ulcerosa' : report.ibdNota.diagnosiAttuale === 'Crohn' ? 'malattia di Crohn' : 'IBD non classificata'}</strong>.
                             </p>
                         </div>
+                    ` : DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) && report.diagnosiVeloce.testo ? `
+                        <div class="mb-4 p-4 bg-gray-50 border-l-4 border-gray-400 rounded">
+                            <p class="text-sm text-gray-800">${report.diagnosiVeloce.testo}</p>
+                        </div>
                     ` : `
                         <div class="mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
                             <p class="font-bold text-lg mb-1">${report.interpretation.headline}</p>
@@ -1680,7 +1721,6 @@
                                 Nancy Histological Index: <strong>${report.nancy.score}/4</strong> — ${report.nancy.interpretation.label}
                             </p>
                             <p class="text-sm text-blue-800">${report.nancy.interpretation.description}</p>
-                            <p class="text-sm text-blue-700 mt-1">${report.nancy.interpretation.prognosis}</p>
                             <p class="text-xs text-gray-500 mt-2">Marchal-Bressenot et al., Gut 2017; Travis et al., Gut 2019</p>
                         </div>
                     ` : ''}
@@ -1690,23 +1730,24 @@
                             <thead><tr class="bg-gray-200">
                                 <th class="border p-2 text-left">Sede</th>
                                 <th class="border p-2 text-left">Stato</th>
-                                ${report.nancy.applicable ? '<th class="border p-2 text-left">Nancy</th>' : ''}
+                                <th class="border p-2 text-left">FAC</th>
                                 <th class="border p-2 text-left">Displasia</th>
                             </tr></thead>
                             <tbody>
                                 ${specimens.map(s => {
-                                    const nancy = (report.nancy.applicable && s.siteType !== 'ileum') ? calculateNancyPerSpecimen(s) : null;
+
                                     const active = isSpecimenActive(s);
                                     return `<tr>
                                         <td class="border p-2 capitalize font-semibold">${s.site}</td>
                                         <td class="border p-2 ${active ? 'text-red-600' : 'text-green-600'}">${active ? 'Attiva' : 'Quiescente'}</td>
-                                        ${report.nancy.applicable ? `<td class="border p-2">${nancy !== null ? nancy : 'N/A'}</td>` : ''}
+                                        <td class="border p-2 ${s.facPresente ? 'text-orange-600 font-semibold' : 'text-gray-400'}">${s.facPresente ? '🔬 Sì' : '—'}</td>
                                         <td class="border p-2 ${s.findings.displasia && s.findings.displasia !== 'assente' ? 'text-red-600 font-bold' : ''}">${s.findings.displasia || 'N/A'}</td>
                                     </tr>`;
                                 }).join('')}
                             </tbody>
                         </table>
                     </div>
+                    ${(() => { const sl = formatSediCampionate(specimens); return sl ? `<p class="text-xs text-gray-500 mt-2">📍 ${sl}</p>` : ''; })()}
                 </div>
 
 
@@ -1737,7 +1778,7 @@
                     </div>` : ''}
 
                 <!-- SCORING QUALITATIVO (solo prima diagnosi) -->
-                ${!report.ibdNota.enabled ? ScoringDisplay(report) : ''}
+                ${!report.ibdNota.enabled && !DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) ? ScoringDisplay(report) : ''}
 
                 <!-- NOTE CLINICHE -->
                 ${report.validations.length > 0 ? `
@@ -1817,7 +1858,22 @@
             const isNormal = report.interpretation.level === 'normale';
             let plainText = '';
             if (isNormal) {
-                plainText = `${report.interpretation.headline}\n${report.interpretation.description}\n\nSedi esaminate: ${specimens.map(s => s.site.charAt(0).toUpperCase() + s.site.slice(1)).join(', ')}`;
+                const sediNorm = formatSediCampionate(specimens);
+                const facNoteNorm = formatFacNote(specimens);
+                plainText = `${report.interpretation.headline}\n${report.interpretation.description}`;
+                if (sediNorm) plainText += `\n\n${sediNorm}`;
+                if (facNoteNorm) plainText += `\n\n${facNoteNorm}`;
+            } else if (DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) && report.diagnosiVeloce.testo) {
+                const sediLine = formatSediCampionate(specimens);
+                plainText = report.diagnosiVeloce.testo;
+                if (sediLine) plainText += `\n\n${sediLine}`;
+                const facNoteFisso = formatFacNote(specimens);
+                if (facNoteFisso) plainText += `\n\n${facNoteFisso}`;
+                if (report.dysplasiaReport) plainText += `\n\n⚠️ DISPLASIA RILEVATA: ${report.dysplasiaReport.maxGrade}\n${report.dysplasiaReport.recommendation}`;
+                navigator.clipboard.writeText(plainText).then(() => alert('✅ Referto copiato!')).catch(() => {
+                    const t = document.createElement('textarea'); t.value = plainText; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); alert('✅ Copiato!');
+                });
+                return;
             } else if (report.ibdNota.enabled && report.ibdNota.diagnosiAttuale) {
                 const diagnosi = report.ibdNota.diagnosiAttuale === 'RCU' ? 'rettocolite ulcerosa' : report.ibdNota.diagnosiAttuale === 'Crohn' ? 'malattia di Crohn' : 'IBD non classificata';
                 plainText = `Quadro istologico di IBD compatibile, alla luce della storia clinica, con ${diagnosi}.\n\n`;
@@ -1830,18 +1886,27 @@
                     const nancyScore = nancyObj !== null ? (typeof nancyObj === 'object' ? nancyObj.score : nancyObj) : null;
                     const active = isSpecimenActive(s);
                     plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${active ? 'Attiva' : 'Quiescente'}`;
-                    if (nancyScore !== null) plainText += `, Nancy = ${nancyScore}`;
+                    if (s.findings.fibrosi_sottomucosa && s.findings.fibrosi_sottomucosa !== 'assente') plainText += `, fibrosi sottomucosa ${s.findings.fibrosi_sottomucosa}`;
                     if (s.findings.displasia && s.findings.displasia !== 'assente') plainText += `, displasia ${s.findings.displasia}`;
                     plainText += `\n`;
                 });
+                const sediIbd = formatSediCampionate(specimens);
+                if (sediIbd) plainText += `\n${sediIbd}`;
+                const facNoteIbd = formatFacNote(specimens);
+                if (facNoteIbd) plainText += `\n\n${facNoteIbd}`;
             } else {
                 plainText = `${report.interpretation.headline}\n${report.interpretation.description}\n\nDettaglio per sede:\n`;
                 specimens.forEach(s => {
                     const active = isSpecimenActive(s);
                     plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${active ? 'Attiva' : 'Quiescente'}`;
+                    if (s.findings.fibrosi_sottomucosa && s.findings.fibrosi_sottomucosa !== 'assente') plainText += `, fibrosi sottomucosa ${s.findings.fibrosi_sottomucosa}`;
                     if (s.findings.displasia && s.findings.displasia !== 'assente') plainText += `, displasia ${s.findings.displasia}`;
                     plainText += `\n`;
                 });
+                const sediElse = formatSediCampionate(specimens);
+                if (sediElse) plainText += `\n${sediElse}`;
+                const facNoteElse = formatFacNote(specimens);
+                if (facNoteElse) plainText += `\n\n${facNoteElse}`;
             }
             if (report.dysplasiaReport) plainText += `\n⚠️ DISPLASIA RILEVATA: ${report.dysplasiaReport.maxGrade}\n${report.dysplasiaReport.recommendation}`;
             navigator.clipboard.writeText(plainText).then(() => alert('✅ Referto copiato!')).catch(() => {
@@ -1911,6 +1976,10 @@
                     const cb = document.getElementById(`mucin-granuloma-checkbox-${wizardSiteIndex}`);
                     if (cb) cb.checked = true;
                 }
+                if (saved.facPresente) {
+                    const facCb = document.getElementById(`fac-checkbox-${wizardSiteIndex}`);
+                    if (facCb) facCb.checked = true;
+                }
             }
         };
 
@@ -1952,7 +2021,7 @@
     </script>
 
     <div class="max-w-6xl mx-auto mt-8 text-xs text-gray-600 text-center p-4 bg-gray-100 rounded">
-        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.1.1 "Wizard fix"</p>
+        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.1.2</p>
         <p class="mb-1">
             <strong>v3.0.9:</strong> Nancy limitato a RCU nota in follow-up · Scoring qualitativo (etichette, no percentuali) ·
             <strong>v3.0.8:</strong> Lean expert · <strong>v3.0.7:</strong> Epistemic Guard · <strong>v3.0.5:</strong> Quick Sites
