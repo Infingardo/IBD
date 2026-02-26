@@ -121,7 +121,7 @@
                     </ul>
                 </div>
                 <div class="bg-blue-50 border-l-4 border-blue-500 p-3">
-                    <p class="font-semibold text-blue-900 mb-1">Lo scoring è:</p>
+                    <p class="font-semibold text-blue-900 mb-1">Il punteggio diagnostico è:</p>
                     <ul class="list-disc ml-5 space-y-1 text-blue-800 text-sm">
                         <li><strong>PURAMENTE ORIENTATIVO</strong> e non diagnostico</li>
                         <li><strong>NON VALIDATO</strong> prospetticamente</li>
@@ -137,7 +137,7 @@
                 </div>
                 <div class="bg-gray-100 p-3 rounded">
                     <p class="text-xs text-gray-700 italic">
-                        v3.1.3: Fix topografico pouch · FAC per sede · versioning allineato · Nancy solo RCU follow-up · Scoring qualitativo (no percentuali)
+                        v3.1.3: Fix topografico pouch · FAC per sede · versioning allineato · Nancy solo RCU follow-up · Punteggio qualitativo (no percentuali)
                     </p>
                 </div>
             </div>
@@ -219,7 +219,7 @@
                         TOOL DIAGNOSTICO: Uso riservato a patologi esperti in IBD
                     </p>
                     <p class="text-xs text-gray-800">
-                        Scoring orientativo, NON sostitutivo del ragionamento clinico-patologico | 
+                        Punteggio orientativo, NON sostitutivo del ragionamento clinico-patologico | 
                         Nancy Index: solo RCU nota in follow-up
                     </p>
                 </div>
@@ -333,7 +333,7 @@
                         </div>
                         <button onclick="confirmReset()"
                             class="bg-white text-red-600 px-8 py-4 rounded-lg font-bold hover:bg-red-50 transition-all shadow-md text-lg">
-                            🗑️ RESET<br>COMPLETO
+                            🗑️ AZZERA<br>TUTTO
                         </button>
                     </div>
                 </div>`;
@@ -398,11 +398,11 @@
             if (hasSpecialSites) {
                 pattern.warning = "ℹ️ Sedi speciali (pouch/anastomosi): analisi topografica standard non applicabile.";
             } else if (pattern.rectumSampled && pattern.rectumInvolved && !pattern.skipLesions && !pattern.ileumInvolved) {
-                pattern.warning = "⚠️ Pattern topografico RCU-like: retto coinvolto, distribuzione continua, ileo non coinvolto";
+                pattern.warning = "⚠️ Distribuzione tipo RCU: retto coinvolto, pattern continuo, ileo non coinvolto";
             } else if (pattern.skipLesionsIndeterminate) {
                 pattern.warning = "⚠️ Campionamento incompleto: continuità/discontinuità NON valutabile. Completare mapping endoscopico.";
             } else if (pattern.skipLesions || (pattern.ileumInvolved && !pattern.rectumInvolved)) {
-                pattern.warning = "⚠️ Pattern topografico Crohn-like: distribuzione discontinua e/o ileo coinvolto con retto risparmiato";
+                pattern.warning = "⚠️ Distribuzione tipo Crohn: pattern discontinuo e/o ileo coinvolto con retto risparmiato";
             } else if (!pattern.rectumSampled) {
                 pattern.warning = "ℹ️ Retto non campionato: valutazione pattern topografico limitata";
             } else if (pattern.rectumSampled && !pattern.rectumInvolved && sitesWithFindings.length > 0) {
@@ -466,8 +466,10 @@
                 const neutLevel = specimen.findings.neutrofili_epitelio;
                 if (neutRank[neutLevel] > neutRank[neutrophilSeverity]) neutrophilSeverity = neutLevel;
             });
+            // Nancy: ascessi criptici contano solo se neutrofili ≥ lieve (impossibile avere CA senza neutrofili)
+            const cryptsContribute = hasCryptAbscesses && neutrophilSeverity !== 'assente';
             if (hasUlceration) nancyScore = 4;
-            else if (neutrophilSeverity === 'marcata' || neutrophilSeverity === 'moderata' || hasCryptAbscesses) nancyScore = 3;
+            else if (neutrophilSeverity === 'marcata' || neutrophilSeverity === 'moderata' || cryptsContribute) nancyScore = 3;
             else if (neutrophilSeverity === 'lieve') nancyScore = 2;
             else {
                 const hasChronicChanges = colonSpecimens.some(s =>
@@ -667,7 +669,7 @@
                     result.epistemicNote = 'Criteri multipli ma non patognomonici. Conferma clinico-radiologica essenziale.';
                 } else {
                     result.level = 'suggestivo'; result.headline = 'Pattern suggestivo ma non diagnostico per malattia di Crohn';
-                    result.description = 'Pattern con alcune features compatibili con Crohn, INSUFFICIENTE per diagnosi definitiva.';
+                    result.description = 'Pattern con alcune caratteristiche compatibili con Crohn, INSUFFICIENTE per diagnosi definitiva.';
                     result.epistemicNote = 'Istologia da sola NON consente diagnosi. Correlazione clinica, distribuzione endoscopica e imaging INDISPENSABILI.';
                 }
             } else if (max === uc && uc >= 40) {
@@ -702,7 +704,7 @@
                 result.primary = 'IBDU'; result.level = 'indeterminato'; result.headline = 'IBD non classificabile (IBDU)';
                 if (ibdu > 50) {
                     result.description = 'Pattern contraddittorio con features sovrapposte Crohn/RCU. Classificazione istologica non possibile.';
-                    result.epistemicNote = 'IBDU con overlap features. Diagnosi definitiva richiede follow-up clinico-istologico prolungato.';
+                    result.epistemicNote = 'IBDU con caratteristiche sovrapposte. Diagnosi definitiva richiede follow-up clinico-istologico prolungato.';
                 } else {
                     result.description = 'Pattern aspecifico di IBD. Dati istologici insufficienti per classificazione Crohn vs RCU.';
                     result.epistemicNote = 'Score equiparati. Rivalutazione con follow-up istologico + correlazione clinico-endoscopica-radiologica INDISPENSABILE.';
@@ -744,10 +746,10 @@
             const hasUCPattern = specimens.some(s => s.findings.plasmacellule_basale === 'presente' || s.findings.distorsione_architettura === 'presente');
             const scoring = calculateScoring();
             if (hasGranulomas && hasUCPattern) {
-                notes.push({ type: 'CONTRADDITTORIO', title: 'Pattern contraddittorio: Granulomi + Cronicità RCU-like',
-                    features: ['Granulomi epitelioidi (feature Crohn)', 'Alterazioni croniche RCU-like (plasmacellule basali, distorsione)'],
+                notes.push({ type: 'CONTRADDITTORIO', title: 'Pattern contraddittorio: Granulomi + Cronicità tipo RCU',
+                    features: ['Granulomi epitelioidi (caratteristica Crohn)', 'Alterazioni croniche tipo RCU (plasmacellule basali, distorsione di architettura)'],
                     interpretation: 'Scoring a fini DESCRITTIVI; affidabilità LIMITATA per features contraddittorie.',
-                    suggestion: 'Pattern suggerisce IBDU con overlap. Rivalutazione con follow-up clinico-istologico NECESSARIA.' });
+                    suggestion: 'Pattern suggerisce IBDU con caratteristiche sovrapposte. Rivalutazione con follow-up clinico-istologico NECESSARIA.' });
             }
             if (!hasGranulomas && scoring.scores.crohn > 60) {
                 const hasTransmuralEquivalent = specimens.some(s => s.findings.fibrosi_sottomucosa === 'marcata');
@@ -858,8 +860,13 @@
         const DIAGNOSI_TESTO_FISSO = ['COLITE_COLLAGENA','COLITE_LINFOCITICA','COLITE_INFETTIVA','COLITE_ISCHEMICA','COLITE_FANS','SCAD','COLITE_CRONICA_ASPECIFICA'];
         const STANDARD_SITES = ['ileo', 'cieco', 'ascendente', 'trasverso', 'discendente', 'sigma', 'retto'];
         const SITE_LABELS = {
-            ileo: 'Ileo', cieco: 'Cieco', ascendente: 'Colon ascendente',
-            trasverso: 'Colon trasverso', discendente: 'Colon discendente',
+            ileo: 'Ileo', cieco: 'Cieco', ascendente: 'Colon ascendente (colon destro)',
+            trasverso: 'Colon trasverso', discendente: 'Colon discendente (colon sinistro)',
+            sigma: 'Sigma', retto: 'Retto', pouch: 'Pouch', anastomosi: 'Anastomosi'
+        };
+        const SITE_LABELS_SHORT = {
+            ileo: 'Ileo', cieco: 'Cieco', ascendente: 'Ascendente (dx)',
+            trasverso: 'Trasverso', discendente: 'Discendente (sin)',
             sigma: 'Sigma', retto: 'Retto', pouch: 'Pouch', anastomosi: 'Anastomosi'
         };
         const formatFacNote = (specimenList) => {
@@ -1275,7 +1282,7 @@
                         ${STANDARD_SITES.map(site => `
                             <label class="flex items-center gap-2 p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-400 cursor-pointer transition-all has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
                                 <input type="checkbox" value="${site}" ${selectedSites.includes(site) ? 'checked' : ''} onchange="toggleSiteSelection('${site}', this.checked)" class="w-5 h-5 accent-blue-600">
-                                <span class="font-semibold capitalize text-sm">${site}</span>
+                                <span class="font-semibold text-sm">${SITE_LABELS_SHORT[site] || site}</span>
                             </label>`).join('')}
                     </div>
                 </div>
@@ -1285,7 +1292,7 @@
                         ${SPECIAL_SITES.map(site => `
                             <label class="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border-2 border-amber-200 hover:border-amber-400 cursor-pointer transition-all has-[:checked]:border-amber-500 has-[:checked]:bg-amber-100">
                                 <input type="checkbox" value="${site}" ${selectedSites.includes(site) ? 'checked' : ''} onchange="toggleSiteSelection('${site}', this.checked)" class="w-5 h-5 accent-amber-600">
-                                <span class="font-semibold capitalize text-sm">${site}</span>
+                                <span class="font-semibold text-sm">${SITE_LABELS_SHORT[site] || site}</span>
                             </label>`).join('')}
                     </div>
                 </div>
@@ -1311,7 +1318,7 @@
                     <h3 class="text-xl font-bold flex items-center gap-2"><span>⚡</span> STEP 2: Scegli Diagnosi (${selectedSites.length} sedi)</h3>
                     <button onclick="deselectAllSites()" class="text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">← Cambia Sedi</button>
                 </div>
-                <p class="text-sm text-gray-700 mb-4"><strong>Sedi:</strong> ${selectedSites.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')}</p>
+                <p class="text-sm text-gray-700 mb-4"><strong>Sedi:</strong> ${selectedSites.map(s => SITE_LABELS_SHORT[s] || s).join(', ')}</p>
                 <div class="mb-4">
                     <p class="text-xs font-semibold text-green-700 mb-2 uppercase">IBD:</p>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -1435,7 +1442,7 @@
                                     ${isCurrent ? 'bg-blue-600 border-blue-600 text-white' : isDone ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-300 text-gray-400'}">
                                     ${isDone ? '✓' : i + 1}
                                 </div>
-                                <span class="text-xs mt-1 capitalize text-center truncate w-full ${isCurrent ? 'text-blue-700 font-bold' : isDone ? 'text-green-600' : 'text-gray-400'}">${s}</span>
+                                <span class="text-xs mt-1 text-center truncate w-full ${isCurrent ? 'text-blue-700 font-bold' : isDone ? 'text-green-600' : 'text-gray-400'}">${SITE_LABELS_SHORT[s] || s}</span>
                             </div>
                             ${i < total - 1 ? '<div class="flex-shrink-0 w-4 h-0.5 bg-gray-200 mt-3.5"></div>' : ''}`;
                         }).join('')}
@@ -1445,8 +1452,8 @@
 
                 <!-- Sede corrente -->
                 <div class="bg-white rounded-lg p-4 border-2 ${isIleum ? 'border-orange-400' : 'border-blue-400'}">
-                    <h4 class="font-bold text-lg mb-3 capitalize flex items-center gap-2">
-                        🔬 ${site}
+                    <h4 class="font-bold text-lg mb-3 flex items-center gap-2">
+                        🔬 ${SITE_LABELS[site] || site}
                         <span class="text-xs px-2 py-1 rounded ${isIleum ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${isIleum ? 'Criteri ILEO' : 'Criteri COLON'}</span>
                     </h4>
                     <div class="grid grid-cols-2 gap-3">${renderFindings(site, idx)}</div>
@@ -1492,7 +1499,7 @@
                     return `<div class="bg-white border-2 ${spec.findings.displasia && spec.findings.displasia !== 'assente' ? 'border-red-400' : 'border-gray-300'} rounded-lg p-4">
                         <div class="flex justify-between items-start mb-3">
                             <div>
-                                <h4 class="font-bold text-lg capitalize">${spec.site}</h4>
+                                <h4 class="font-bold text-lg">${SITE_LABELS[spec.site] || spec.site}</h4>
                                 <div class="flex gap-2 mt-1 flex-wrap">
                                     <span class="text-xs px-2 py-1 rounded ${spec.siteType === 'ileum' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${spec.siteType === 'ileum' ? '🔬 Ileo' : '🔬 Colon'}</span>
                                     <span class="text-xs px-2 py-1 rounded ${isActive ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${isActive ? '🔥 Attiva' : '✓ Quiescente'}</span>
@@ -1524,7 +1531,7 @@
             const findingOptions = { granulomi_epitelioidi: ['assente','presente','sospetti'], neutrofili_epitelio: ['assente','lieve','moderata','marcata'], neutrofili_lamina_propria: ['assente','lieve','moderata','marcata'], ascessi_criptici: ['assente','presente'], plasmacellule_basale: ['assente','presente'], distorsione_architettura: ['assente','presente'], erosioni_ulcerazioni: ['assente','presente'], metaplasia_paneth: ['assente','presente'], ulcerazione: ['assente','presente'], fibrosi_sottomucosa: ['assente','lieve','moderata','marcata'], displasia: ['assente','indefinita','LGD','HGD'], iperplasia_linfoide: ['assente','presente'], edema_lamina_propria: ['assente','presente'], atrofia_villi: ['assente','lieve','moderata','marcata'], plasmacellule_aumentate: ['assente','presente'] };
             const findingKeys = isIleum ? ['granulomi_epitelioidi','neutrofili_lamina_propria','erosioni_ulcerazioni','iperplasia_linfoide','edema_lamina_propria','atrofia_villi','plasmacellule_aumentate','fibrosi_sottomucosa'] : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','erosioni_ulcerazioni','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
             return `<div class="bg-amber-50 rounded-lg p-6 mb-6 border-2 border-amber-400">
-                <h3 class="text-xl font-bold mb-4 flex items-center gap-2">✏️ Modifica: <span class="capitalize">${spec.site}</span></h3>
+                <h3 class="text-xl font-bold mb-4 flex items-center gap-2">✏️ Modifica: <span>${SITE_LABELS[spec.site] || spec.site}</span></h3>
                 <div class="grid grid-cols-2 gap-4">
                     ${findingKeys.map(key => `<div>
                         <label class="block text-sm font-semibold mb-1 ${key === 'displasia' ? 'text-red-700' : ''}">${findingLabels[key]}</label>
@@ -1549,8 +1556,8 @@
                         <label class="block text-sm font-semibold mb-2">CD68 Pattern:</label>
                         <select onchange="updateIHC('cd68_pattern', this.value)" class="w-full p-2 border rounded">
                             <option value="non_eseguito" ${ihcData.cd68_pattern === 'non_eseguito' ? 'selected' : ''}>Non eseguito</option>
-                            <option value="aggregati_profondi" ${ihcData.cd68_pattern === 'aggregati_profondi' ? 'selected' : ''}>Aggregati macrofagici profondi/sottomucosa (Crohn-like)</option>
-                            <option value="diffuso_mucosa" ${ihcData.cd68_pattern === 'diffuso_mucosa' ? 'selected' : ''}>Diffuso mucosa (RCU-like)</option>
+                            <option value="aggregati_profondi" ${ihcData.cd68_pattern === 'aggregati_profondi' ? 'selected' : ''}>Aggregati macrofagici profondi/sottomucosa (tipo Crohn)</option>
+                            <option value="diffuso_mucosa" ${ihcData.cd68_pattern === 'diffuso_mucosa' ? 'selected' : ''}>Diffuso mucosa (tipo RCU)</option>
                         </select>
                     </div>
                     <div>
@@ -1715,11 +1722,88 @@
                     <!-- Nancy: SOLO se RCU follow-up -->
                     ${report.nancy.applicable ? `
                         <div class="mb-4 p-4 bg-blue-50 border border-blue-300 rounded">
-                            <p class="font-semibold text-blue-900 mb-1">
-                                Nancy Histological Index: <strong>${report.nancy.score}/4</strong> — ${report.nancy.interpretation.label}
-                            </p>
-                            <p class="text-sm text-blue-800">${report.nancy.interpretation.description}</p>
-                            <p class="text-xs text-gray-500 mt-2">Marchal-Bressenot et al., Gut 2017; Travis et al., Gut 2019</p>
+                            <!-- Risultato -->
+                            <div class="flex items-center justify-between mb-2">
+                                <p class="font-semibold text-blue-900">
+                                    Nancy Histological Index: 
+                                    <span class="text-2xl font-bold mx-1">${report.nancy.score}</span><span class="text-blue-700">/4</span>
+                                    — ${report.nancy.interpretation.label}
+                                </p>
+                                <button onclick="document.getElementById('nancy-ref-table').classList.toggle('hidden')"
+                                    class="text-xs bg-blue-200 hover:bg-blue-300 text-blue-900 px-3 py-1 rounded font-semibold">
+                                    📋 Tabella criteri
+                                </button>
+                            </div>
+                            <p class="text-sm text-blue-800 mb-1">${report.nancy.interpretation.description}</p>
+                            <!-- Dettaglio componenti -->
+                            <div class="text-xs text-blue-700 flex gap-4 flex-wrap mb-2">
+                                <span>Neutrofili epitelio: <strong>${report.nancy.details.neutrophilSeverity}</strong></span>
+                                <span>Ascessi criptici: <strong>${report.nancy.details.hasCryptAbscesses ? 'sì' : 'no'}</strong></span>
+                                <span>Ulcerazione: <strong>${report.nancy.details.hasUlceration ? 'sì' : 'no'}</strong></span>
+                            </div>
+                            <!-- Tabella di riferimento collassabile -->
+                            <div id="nancy-ref-table" class="hidden mt-3 border-t border-blue-300 pt-3">
+                                <p class="text-xs font-bold text-blue-900 mb-2">Criteri di classificazione (Marchal-Bressenot et al., Gut 2017)</p>
+                                <table class="w-full text-xs border-collapse">
+                                    <thead>
+                                        <tr class="bg-blue-200">
+                                            <th class="border border-blue-300 p-1 text-left">Grado</th>
+                                            <th class="border border-blue-300 p-1 text-left">Definizione</th>
+                                            <th class="border border-blue-300 p-1 text-left">Neutrofili epitelio</th>
+                                            <th class="border border-blue-300 p-1 text-left">Ascessi criptici</th>
+                                            <th class="border border-blue-300 p-1 text-left">Ulcerazione</th>
+                                            <th class="border border-blue-300 p-1 text-left">Alterazioni croniche</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="${report.nancy.score === 0 ? 'bg-blue-100 font-bold' : ''}">
+                                            <td class="border border-blue-300 p-1 font-bold">0</td>
+                                            <td class="border border-blue-300 p-1">Remissione completa</td>
+                                            <td class="border border-blue-300 p-1 text-center">assenti</td>
+                                            <td class="border border-blue-300 p-1 text-center">no</td>
+                                            <td class="border border-blue-300 p-1 text-center">no</td>
+                                            <td class="border border-blue-300 p-1 text-center">no</td>
+                                        </tr>
+                                        <tr class="${report.nancy.score === 1 ? 'bg-blue-100 font-bold' : ''}">
+                                            <td class="border border-blue-300 p-1 font-bold">1</td>
+                                            <td class="border border-blue-300 p-1">Remissione con alterazioni croniche</td>
+                                            <td class="border border-blue-300 p-1 text-center">assenti</td>
+                                            <td class="border border-blue-300 p-1 text-center">no</td>
+                                            <td class="border border-blue-300 p-1 text-center">no</td>
+                                            <td class="border border-blue-300 p-1 text-center text-orange-700">sì</td>
+                                        </tr>
+                                        <tr class="${report.nancy.score === 2 ? 'bg-blue-100 font-bold' : ''}">
+                                            <td class="border border-blue-300 p-1 font-bold">2</td>
+                                            <td class="border border-blue-300 p-1">Attività lieve</td>
+                                            <td class="border border-blue-300 p-1 text-center text-yellow-700">lieve</td>
+                                            <td class="border border-blue-300 p-1 text-center">no</td>
+                                            <td class="border border-blue-300 p-1 text-center">no</td>
+                                            <td class="border border-blue-300 p-1 text-center">±</td>
+                                        </tr>
+                                        <tr class="${report.nancy.score === 3 ? 'bg-blue-100 font-bold' : ''}">
+                                            <td class="border border-blue-300 p-1 font-bold">3</td>
+                                            <td class="border border-blue-300 p-1">Attività moderata</td>
+                                            <td class="border border-blue-300 p-1 text-center text-orange-700">moderata–marcata <em>oppure</em></td>
+                                            <td class="border border-blue-300 p-1 text-center text-orange-700">sì (se neut ≥ lievi)</td>
+                                            <td class="border border-blue-300 p-1 text-center">no</td>
+                                            <td class="border border-blue-300 p-1 text-center">±</td>
+                                        </tr>
+                                        <tr class="${report.nancy.score === 4 ? 'bg-blue-100 font-bold' : ''}">
+                                            <td class="border border-blue-300 p-1 font-bold">4</td>
+                                            <td class="border border-blue-300 p-1">Attività severa con ulcerazione</td>
+                                            <td class="border border-blue-300 p-1 text-center text-red-700">qualsiasi</td>
+                                            <td class="border border-blue-300 p-1 text-center">±</td>
+                                            <td class="border border-blue-300 p-1 text-center text-red-700 font-bold">sì</td>
+                                            <td class="border border-blue-300 p-1 text-center">±</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p class="text-xs text-gray-500 mt-1 italic">
+                                    NB: grado ≥ 1 = assenza di remissione istologica. Soglia remissione endoscopica correlata: grado 0-1 (Travis et al., Gut 2019).
+                                    Alterazioni croniche = distorsione architetturale e/o plasmacellule basali.
+                                </p>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">Marchal-Bressenot et al., Gut 2017;66:43–49 · Travis et al., Gut 2019;68:186–217</p>
                         </div>
                     ` : ''}
                     <div class="mb-4">
@@ -1736,7 +1820,7 @@
 
                                     const active = isSpecimenActive(s);
                                     return `<tr>
-                                        <td class="border p-2 capitalize font-semibold">${s.site}</td>
+                                        <td class="border p-2 font-semibold">${SITE_LABELS[s.site] || s.site}</td>
                                         <td class="border p-2 ${active ? 'text-red-600' : 'text-green-600'}">${active ? 'Attiva' : 'Quiescente'}</td>
                                         <td class="border p-2 ${s.facPresente ? 'text-orange-600 font-semibold' : 'text-gray-400'}">${s.facPresente ? '🔬 Sì' : '—'}</td>
                                         <td class="border p-2 ${s.findings.displasia && s.findings.displasia !== 'assente' ? 'text-red-600 font-bold' : ''}">${s.findings.displasia || 'N/A'}</td>
@@ -1862,9 +1946,17 @@
                 if (sediNorm) plainText += `\n\n${sediNorm}`;
                 if (facNoteNorm) plainText += `\n\n${facNoteNorm}`;
             } else if (DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) && report.diagnosiVeloce.testo) {
-                const sediLine = formatSediCampionate(specimens);
                 plainText = report.diagnosiVeloce.testo;
-                if (sediLine) plainText += `\n\n${sediLine}`;
+                plainText += `\n\nDettaglio per sede:\n`;
+                specimens.forEach(s => {
+                    const active = isSpecimenActive(s);
+                    plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${active ? 'Attiva' : 'Quiescente'}`;
+                    if (s.findings.fibrosi_sottomucosa && s.findings.fibrosi_sottomucosa !== 'assente') plainText += `, fibrosi sottomucosa ${s.findings.fibrosi_sottomucosa}`;
+                    if (s.findings.displasia && s.findings.displasia !== 'assente') plainText += `, displasia ${s.findings.displasia}`;
+                    plainText += `\n`;
+                });
+                const sediLine = formatSediCampionate(specimens);
+                if (sediLine) plainText += `\n${sediLine}`;
                 const facNoteFisso = formatFacNote(specimens);
                 if (facNoteFisso) plainText += `\n\n${facNoteFisso}`;
                 if (report.dysplasiaReport) plainText += `\n\n⚠️ DISPLASIA RILEVATA: ${report.dysplasiaReport.maxGrade}\n${report.dysplasiaReport.recommendation}`;
