@@ -1,4 +1,4 @@
-# IBD Diagnostic Tool v3.0.7 "Epistemic Guard"
+# IBD Diagnostic Tool v3.1.3
 
 **Strumento di supporto decisionale per la diagnosi istologica delle malattie infiammatorie croniche intestinali (IBD)**
 
@@ -14,43 +14,46 @@ Questo tool **non fa diagnosi**. Formalizza il ragionamento del patologo esperto
 - Le contraddizioni e i limiti del campionamento
 - Quando l'istologia da sola non basta
 
-**Target**: Patologi esperti e patologi in formazione sotto supervisione.
+**Target**: Patologi esperti e patologi in formazione sotto supervisione diretta.
 
 ---
 
 ## 📋 Funzionalità Principali
 
 ### Workflow Clinico
-1. **Selezione sedi** - Griglia visiva per mapping endoscopico (7 sedi standard + pouch/anastomosi)
-2. **Compilazione findings** - Form specifici per ileo vs colon
-3. **IHC opzionale** - p53, CD68, CMV
-4. **Referto automatico** - Con interpretazione graduata e note metodologiche
-
-### Diagnosi Veloce (Training)
-- Pre-compilazione automatica per casi tipici (RCU, Crohn, SCAD, coliti microscopiche)
-- **Watermark "SIMULAZIONE DIDATTICA"** per casi auto-generati
-- Checkbox obbligatoria "Ho verificato i reperti sul vetrino"
+1. **Selezione sedi** — Griglia visiva per mapping endoscopico (7 sedi standard + pouch/anastomosi)
+2. **Wizard multi-sede** — Compilazione guidata sede per sede con step indicator, salvataggio intermedio e navigazione avanti/indietro
+3. **Diagnosi veloce** — Pre-compilazione automatica per casi tipici (RCU, Crohn, SCAD, coliti microscopiche); chiede Nancy Index o misure specifiche quando rilevante
+4. **IHC opzionale** — p53 (con pattern wild-type / overespressione / perdita completa), CD68, CMV
+5. **Referto automatico** — Con interpretazione graduata, nota metodologica e supporto copia/stampa
 
 ### Scoring Orientativo
 - Score Crohn / RCU / IBDU con etichette qualitative (Basso, Borderline, Compatibile, Forte)
-- **IBDU emerge da contraddizione, non da debolezza** (score bassi ≠ IBDU)
-- Nota automatica quando granulomi trainano lo score
+- **Nessuna percentuale mostrata all'utente** (scoring interno usato solo per la logica)
+- IBDU emerge da contraddizione morfologica, non da debolezza dello score
+- Nota automatica quando granulomi trainano l'orientamento
 
 ### Nancy Histological Index
-- Calcolato solo per pattern UC-like
-- **Warning esplicito** se pattern complessivo non UC-classico
-- Ranking corretto dei neutrofili (fix lieve→moderata)
+- Abilitato **esclusivamente** per RCU nota in follow-up (checkbox "IBD nota" + diagnosi "RCU")
+- Disabilitato automaticamente in prima diagnosi, Crohn, IBDU, e per campioni ileali
+- Riferimenti: Marchal-Bressenot et al., *Gut* 2017; Travis et al., *Gut* 2019
 
 ### Pattern Topografico
 - Distribuzione continua vs discontinua
-- Skip lesions **solo se sedi intermedie campionate** (altrimenti "indeterminabile")
-- Warning per retto risparmiato, campionamento incompleto
+- Skip lesions rilevate **solo se le sedi intermedie sono state campionate** (altrimenti: "indeterminabile")
+- Warning specifici per retto risparmiato (con e senza terapia in corso), campionamento incompleto, sedi speciali post-chirurgiche (pouch/anastomosi)
+
+### Colite Attiva Focale (FAC)
+- Checkbox per sede nel wizard di compilazione
+- Riportata in tabella referto e nel testo copiato
+- Nota automatica: "Reperto aspecifico; correlazione clinico-endoscopica raccomandata"
 
 ### Alert Automatici
-- 🏥 **Flag MDT** per casi complessi (pattern contraddittorio, IBDU alto, displasia+p53)
-- ⚠️ **Granulomi ileali isolati** → DD infettiva obbligatoria (TBC, Yersinia)
-- ⚠️ **SCAD** → diagnosi di esclusione
-- ⚠️ **Crohn senza granulomi** → biopsia mucosa non dimostra transmuralità
+- 🏥 **Flag MDT** per casi complessi (pattern contraddittorio, IBDU elevato, displasia + p53 aberrante)
+- ⚠️ **Granulomi epitelioidi senza cronicità** → DD infettiva obbligatoria (TBC, Yersinia, sarcoidosi)
+- ⚠️ **Granuloma mucinoso** — peso ridotto se rottura criptale plausibile; conferma con PAS-D
+- ⚠️ **Crohn senza granulomi** → nota su limite della biopsia mucosa (non dimostra transmuralità)
+- ⚠️ **CMV positivo** → raccomandazione infettivologica
 
 ---
 
@@ -60,27 +63,28 @@ Questo tool **non fa diagnosi**. Formalizza il ragionamento del patologo esperto
 
 1. **Incertezza dichiarata**
    - Il tool sa quando non sa
-   - IBDU = contraddizione, non pattumiera
+   - IBDU = contraddizione morfologica, non pattumiera diagnostica
    - Note metodologiche esplicite per pattern ambigui
 
 2. **Morfologia al centro**
    - IHC come supporto, non sostituto
    - "Il grading displastico è MORFOLOGICO. p53 non lo definisce."
-   - Granulomi pesati e qualificati (mucin granuloma ≠ Crohn)
+   - Granuloma mucinoso ≠ granuloma epitelioide di Crohn
 
-3. **Limite dello strumento**
+3. **Limite dello strumento dichiarato**
    - "Biopsia mucosa NON è lo strumento per dimostrare transmuralità"
-   - Campionamento incompleto → non fingo di sapere
+   - Campionamento incompleto → continuità non valutabile, non inventata
 
-4. **Simulazione ≠ Caso reale**
-   - Watermark visivo
-   - Checkbox conferma
-   - MDT flag disabilitato per simulazioni
+4. **Terminologia italiana corretta**
+   - "Granuloma mucinoso" (non *mucin granuloma*)
+   - "Overespressione" (non *overexpression*)
+   - "Perdita completa/Null" (non *complete loss*)
+   - "Reperti" (non *findings* nell'interfaccia)
 
 ### Scuola Rosai
-- Pattern recognition > checklist
+- Pattern recognition > checklist automatica
 - Correlazione clinica sempre richiesta
-- Diagnosi differenziale ragionata
+- Diagnosi differenziale ragionata, non algoritmica
 
 ---
 
@@ -93,8 +97,8 @@ NON VALIDATO CLINICAMENTE
 - Non sostituisce il giudizio del patologo
 - Non utilizzabile come unico criterio diagnostico
 - Richiede sempre correlazione clinico-endoscopica
-- Percentuali non comparabili tra casi diversi
 - Scoring orientativo, NON validato su casistica esterna
+- Uso riservato a patologi esperti in IBD o in formazione supervisionata
 ```
 
 ---
@@ -105,70 +109,86 @@ NON VALIDATO CLINICAMENTE
 - JavaScript abilitato
 - Nessuna installazione richiesta (file HTML standalone)
 - Funziona offline dopo il primo caricamento
-- Dati salvati in localStorage (persistenti per browser)
+- Dati salvati in `localStorage` (persistenti per browser/sessione)
 
 ---
 
 ## 📖 Guida Rapida
 
-### Caso Nuovo
-1. Aprire il file HTML
-2. Selezionare sedi campionate (griglia visiva)
-3. Scegliere:
-   - **⚡ TUTTI NORMALI** → 7 campioni normali in un click
-   - **Diagnosi specifica** → auto-compilazione + conferma Nancy
-   - **Compila manualmente** → form dettagliato per sede
-4. Tab IHC (opzionale) → p53, CMV
-5. Tab Referto → revisione e stampa/copia
+### Caso Nuovo — Prima Diagnosi
+1. Aprire `index.html`
+2. Selezionare le sedi campionate (griglia con checkbox)
+3. Click **"Avanti"** → scegliere tra:
+   - **Diagnosi veloce** → auto-compilazione + eventuale Nancy/IEL/banda collagene
+   - **Compila manualmente i reperti** → wizard sede per sede
+4. Tab **IHC** (opzionale) → p53, CD68, CMV, coliti microscopiche
+5. Tab **Referto** → revisione, copia testo, stampa/PDF
 
-### Caso Follow-up IBD
-1. Attivare "Follow-up IBD noto"
-2. Indicare diagnosi attuale (RCU/Crohn/IBDU)
-3. Indicare se terapia in corso (modifica interpretazione retto risparmiato)
+### Caso Follow-up IBD Nota
+1. Spuntare **"IBD nota (Follow-up)"**
+2. Selezionare diagnosi (RCU / Crohn / IBDU)
+3. Indicare se paziente in terapia immunosoppressiva/biologica (modula interpretazione retto risparmiato)
 4. Compilare findings
-5. Referto con Nancy per sede (se RCU)
+5. Referto: se RCU, Nancy Index calcolato e incluso nel testo
 
-### Sbloccare Caso
-- Bottone "🔓 Sblocca Nuovo Caso" nel banner rosso
-- Reset completo di tutti i dati
+### Sbloccare per Nuovo Caso
+- Banner rosso → **"🔓 SBLOCCA NUOVO CASO"**
+- Reset completo di tutti i dati (con conferma)
 
 ---
 
-## 📊 Versioning
+## 📊 Changelog
 
-### v3.0.7 "Epistemic Guard" (current)
-- Checkbox "Ho verificato i reperti sul vetrino" per simulazioni
+### v3.1.3 (Febbraio 2026) — *Localizzazione italiana*
+- Terminologia italiana corretta: "granuloma mucinoso", "overespressione", "perdita completa/Null", "reperti"
+- `N/A` → `—` nella colonna displasia del referto
+- Ileo senza attività → "Nella norma" (non "Quiescente": l'ileo non è in remissione, è semplicemente non coinvolto)
+
+### v3.1.2 (Febbraio 2026) — *Fix WYSIWYG referto normale*
+- Allineamento tra view e testo copiato per mucosa normale: bullet points e ordine sedi ora identici in entrambi
+- Fix topografico pouch/anastomosi: escluse dall'analisi continua/discontinua
+- FAC riportata per sede (sia in tabella che nel testo copiato)
+- Versioning allineato tra header, footer e modal disclaimer
+
+### v3.1.x (Gennaio–Febbraio 2026) — *Stabilizzazione*
+- Fix minori workflow wizard (salvataggio intermedio, ripristino valori a navigazione avanti/indietro)
+- Ottimizzazione `updateSiteSelectionUI()`: aggiornamento chirurgico senza `render()` completo alla prima spunta
+
+### v3.0.9 (Gennaio 2026) — *Nancy solo RCU follow-up · Scoring qualitativo*
+- Nancy Index abilitato **solo** se IBD nota = RCU in follow-up
+- Rimosso warning "Nancy non applicabile se ileo presente" (ora semplicemente non mostrato)
+- Scoring mostrato solo con etichette qualitative, nessuna percentuale visibile all'utente
+- Fix ranking neutrofili Nancy (lieve → moderata → marcata)
+
+### v3.0.8 (Gennaio 2026) — *Lean Expert*
+- Rimozione watermark "SIMULAZIONE DIDATTICA" e checkbox `userConfirmedReview`
+- MDT flag abilitato anche per casi da diagnosi veloce
+- Semplificazione flusso diagnosi veloce
+
+### v3.0.7 (Dicembre 2025) — *Epistemic Guard*
 - Nancy con warning se pattern non UC-classico
-- Skip lesions smart (campionamento parziale → indeterminabile)
-- Blocco copia referto se simulazione non confermata
+- Skip lesions smart: campionamento parziale → "indeterminabile" anziché falsi skip
+- Blocco copia referto se simulazione non confermata (poi rimosso in v3.0.8)
 
-### v3.0.6 "Simulation Safe"
-- Watermark "SIMULAZIONE DIDATTICA" per casi auto-generati
-- MDT flag disabilitato per simulazioni
+### v3.0.6 — *Simulation Safe*
+- Watermark "SIMULAZIONE DIDATTICA" (poi rimosso)
 - IBDU: rimosso trigger "low score = IBDU"
-- Crohn senza granulomi: nota su limite biopsia mucosa
-- Versioning concettuale (ECCO2023, Rosai-school)
+- Nota limite biopsia mucosa per Crohn senza granulomi
 
-### v3.0.5 "Quick Sites"
-- Griglia selezione sedi visiva
+### v3.0.5 — *Quick Sites*
+- Griglia visiva selezione sedi
 - Diagnosi veloce con auto-compilazione
-- ⚡ Tutti Normali (1-click)
-- Etichette qualitative scoring
+- Etichette qualitative scoring (Basso / Borderline / Compatibile / Forte)
 - Flag MDT automatico
-- Banner findings auto-generati
-- Fix: rectumSpared bug, Nancy ranking, altreColiti reset
+- Fix: `rectumSpared` bug, reset `altreColiti`
 
-### v3.0.4
-- Fix "Sblocca Nuovo Caso" per Claude Desktop
-- Reset manuale senza window.location.reload()
+### v3.0.3 — *Enhanced UX · Workflow multi-sede bulk*
+- Wizard multi-sede con step indicator e navigazione
+- Salvataggio bulk di tutti i campioni in un'unica operazione
+- Riduzione click stimata ~53% per caso con 5 sedi
 
-### v3.0.3 e precedenti
-- Architettura base
-- Scoring Crohn/RCU/IBDU
-- Nancy Index
-- Pattern topografico
-- Displasia e p53
-- Lock caso dopo referto
+### v3.0.2 e precedenti
+- Architettura base: scoring Crohn/RCU/IBDU, Nancy Index, pattern topografico, displasia e p53, lock caso dopo referto
 
 ---
 
@@ -176,59 +196,73 @@ NON VALIDATO CLINICAMENTE
 
 ```
 index.html (standalone)
-├── State Management (variabili globali)
+├── State Management
 │   ├── specimens[]
 │   ├── ihcData{}
 │   ├── ibdNota{}
 │   ├── altreColiti{}
 │   ├── diagnosiVeloce{}
-│   └── flags (caseLocked, userConfirmedReview)
+│   ├── selectedSites[]
+│   ├── multiSiteMode / siteSelectionDone
+│   ├── wizardSiteIndex / wizardData{}
+│   └── flags (caseLocked, reportGenerated, editingSpecimenIndex)
 │
 ├── Scoring Engine
-│   ├── calculateScoring() → Crohn/RCU raw + normalized
-│   ├── calculateIBDUScore() → da contraddizione
-│   ├── interpretScoringGraduated() → headline + level
+│   ├── calculateScoring() → Crohn/RCU raw + normalized (interno)
+│   ├── calculateIBDUScore() → da contraddizione morfologica
+│   ├── interpretScoringGraduated() → headline + level + epistemicNote
 │   └── detectContradictoryPatterns() → note metodologiche
 │
 ├── Nancy Engine
-│   ├── shouldShowNancy() → {show, warning}
-│   └── calculateNancyIndex() → score + interpretation
+│   ├── shouldShowNancy() → bool
+│   ├── calculateNancyIndex() → score + interpretation + details
+│   └── calculateNancyPerSpecimen() → score per sede (tabella)
 │
 ├── Topographic Engine
-│   └── analyzeTopographicPattern() → skip, continuity, warning
+│   ├── analyzeTopographicPattern() → skip / continuity / warning
+│   └── hasInflammatoryFindings() → per sede (esclude displasia)
 │
 ├── Validation Engine
-│   ├── validateClinicalLogic() → alert clinici
-│   └── shouldFlagMDT() → casi da MDT
+│   ├── validateClinicalLogic() → alert clinici per sede
+│   └── shouldFlagMDT() → casi da discussione multidisciplinare
 │
 ├── Report Generator
 │   └── generateReport() → oggetto completo con metadata
 │
 └── UI Components (template literals)
     ├── TabNavigation
-    ├── SpecimenForm / SpecimenList
-    ├── IHCTab
+    ├── IbdNotaPanel
+    ├── SpecimenForm → SiteSelectionWithDiagnosi → MultiSiteWorkflow (wizard)
+    ├── SpecimenList / EditSpecimenForm
+    ├── IHCPanel
+    ├── ScoringDisplay
     └── ReportTab
 ```
 
 ---
 
-## 🔮 Sviluppi Futuri (Roadmap)
+## 📁 Documentazione Correlata
 
-### Breve termine
-- [ ] Separazione motore logico da UI
-- [ ] Export JSON per casistica
-- [ ] Modalità "Rosai" (solo morfologia, no score)
+| File | Contenuto | Versione indicata |
+|------|-----------|-------------------|
+| `NANCY_INDEX_QUICK_GUIDE.md` | Guida rapida al Nancy Index (0–4), criteri, FAQ | v2.4.0 |
+| `PREREQUISITES.md` | Requisiti per utenti, test autovalutazione, linee guida per responsabili | v3.0.2 |
+| `MANIFESTO_USO.md` | Piano introduzione tool, prevenzione automation bias, KPI | v3.0.2 |
+| `CASI_DIDATTICI.md` | 5 casi dove il tool sbaglia (o ha ragione a essere indeciso) | v3.0.2 |
+| `RELEASE_NOTES_v3.0.3.md` | Note tecniche dettagliate workflow multi-sede | v3.0.3 |
 
-### Medio termine
-- [ ] Pouch e post-chirurgici dedicati
-- [ ] Scoring ECCO aggiornato
-- [ ] Log decisionale per teaching
+> **Nota**: i file di documentazione secondari riportano versioni precedenti nell'header. Il contenuto è ancora valido; gli screenshot di output si riferiscono a versioni precedenti.
 
-### Lungo termine
+---
+
+## 🔮 Roadmap
+
+- [ ] Export JSON per casistica e audit
+- [ ] Log decisionale per teaching (tracciabilità ragionamento)
+- [ ] Modalità lettura referto (solo testo, senza UI diagnostica)
+- [ ] Scoring ECCO aggiornato con pesi revisionati
 - [ ] Validazione su casistica esterna
-- [ ] Paper metodologico (Virchows / Histopathology)
-- [ ] Versione multilingua
+- [ ] Paper metodologico (*Virchows Archiv* / *Histopathology*)
 
 ---
 
@@ -236,9 +270,9 @@ index.html (standalone)
 
 **Dr. Filippo Bianchi**  
 Direttore SC Anatomia Patologica  
-ASST Fatebenefratelli-Sacco, Milano
-
-GitHub: [@infingardo](https://github.com/infingardo)
+ASST Fatebenefratelli-Sacco, Milano  
+GitHub: [@infingardo](https://github.com/infingardo)  
+Email: filippo.bianchi@asst-fbf-sacco.it
 
 ---
 
@@ -250,9 +284,8 @@ Uso interno e didattico. Non validato per uso clinico autonomo.
 
 ## 🙏 Ringraziamenti
 
-- Duccio Petrella (collaborazione PDTA)
-- Claude AI (pair programming)
-- ChatGPT (code review epistemico)
+- Duccio Petrella (collaborazione PDTA colorettale/gastrico)
+- Claude AI — Anthropic (sviluppo iterativo)
 - Scuola Rosai (metodo)
 
 ---
