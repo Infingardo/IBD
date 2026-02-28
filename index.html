@@ -779,7 +779,7 @@
                         warnings.push({ type: 'GRANULOMA_CAUTION', site: specimen.site,
                             message: `🔍 ${specimen.site.toUpperCase()}: Granulomi marcati come "possibile rottura criptale"`,
                             severity: 'medium',
-                            suggestion: 'Escludere mucin granuloma. Se persistono dubbi, considerare PAS-D.' });
+                            suggestion: 'Escludere granuloma mucinoso. Se persistono dubbi, considerare PAS-D.' });
                     } else if (siteType === 'ileum') {
                         if (f.atrofia_villi === 'assente' && f.plasmacellule_aumentate === 'assente') {
                             warnings.push({ type: 'DIAGNOSTIC_ALERT', site: specimen.site,
@@ -1345,7 +1345,7 @@
                     </div>
                 </div>
                 <div class="mt-4 pt-4 border-t border-gray-300">
-                    <button onclick="confirmSiteSelection()" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-all">📝 Compila manualmente i findings...</button>
+                    <button onclick="confirmSiteSelection()" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-all">📝 Compila manualmente i reperti...</button>
                 </div>
             </div>`;
         };
@@ -1395,7 +1395,7 @@
                     ${isGranulomi ? `<div id="mucin-checkbox-container-${siteIndex}" class="col-span-2 hidden bg-yellow-50 p-3 border border-yellow-400 rounded">
                         <label class="flex items-center gap-2">
                             <input type="checkbox" id="mucin-granuloma-checkbox-${siteIndex}" class="w-4 h-4">
-                            <span class="text-sm font-semibold text-yellow-900">⚠️ Rottura criptale/Mucin granuloma plausibile?</span>
+                            <span class="text-sm font-semibold text-yellow-900">⚠️ Rottura criptale/Granuloma mucinoso plausibile?</span>
                         </label>
                         <p class="text-xs text-yellow-800 mt-1">Spunta se granulomi potrebbero essere da rottura criptale (riduce peso Crohn)</p>
                     </div>` : ''}`;
@@ -1427,7 +1427,7 @@
             return `<div class="bg-green-50 rounded-lg p-6 mb-6 border-2 border-green-400">
                 <!-- Header wizard -->
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xl font-bold flex items-center gap-2"><span>📋</span> Compila Findings</h3>
+                    <h3 class="text-xl font-bold flex items-center gap-2"><span>📋</span> Compila i reperti</h3>
                     <button onclick="cancelMultiSiteMode()" class="text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">✕ Annulla</button>
                 </div>
 
@@ -1502,8 +1502,8 @@
                                 <h4 class="font-bold text-lg">${SITE_LABELS[spec.site] || spec.site}</h4>
                                 <div class="flex gap-2 mt-1 flex-wrap">
                                     <span class="text-xs px-2 py-1 rounded ${spec.siteType === 'ileum' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}">${spec.siteType === 'ileum' ? '🔬 Ileo' : '🔬 Colon'}</span>
-                                    <span class="text-xs px-2 py-1 rounded ${isActive ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${isActive ? '🔥 Attiva' : '✓ Quiescente'}</span>
-                                    ${spec.mucinGranulomaLikely ? `<span class="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700">⚠️ Mucin granuloma?</span>` : ''}
+                                    <span class="text-xs px-2 py-1 rounded ${isActive ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}">${isActive ? '🔥 Attiva' : (spec.siteType === 'ileum' ? '✓ Nella norma' : '✓ Quiescente')}</span>
+                                    ${spec.mucinGranulomaLikely ? `<span class="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-700">⚠️ Granuloma mucinoso?</span>` : ''}
                                 </div>
                             </div>
                             ${!caseLocked ? `<div class="flex gap-2">
@@ -1565,8 +1565,8 @@
                         <select onchange="updateIHC('p53_pattern', this.value)" class="w-full p-2 border rounded">
                             <option value="non_eseguito" ${ihcData.p53_pattern === 'non_eseguito' ? 'selected' : ''}>Non eseguito</option>
                             <option value="wild_type" ${ihcData.p53_pattern === 'wild_type' ? 'selected' : ''}>Wild-type (normale)</option>
-                            <option value="overexpression" ${ihcData.p53_pattern === 'overexpression' ? 'selected' : ''}>Overexpression (mutazione missense)</option>
-                            <option value="null" ${ihcData.p53_pattern === 'null' ? 'selected' : ''}>Null/Complete loss (mutazione nonsense)</option>
+                            <option value="overexpression" ${ihcData.p53_pattern === 'overexpression' ? 'selected' : ''}>Overespressione (mutazione missense)</option>
+                            <option value="null" ${ihcData.p53_pattern === 'null' ? 'selected' : ''}>Perdita completa/Null (mutazione nonsense)</option>
                         </select>
                         ${ihcData.p53_pattern === 'overexpression' || ihcData.p53_pattern === 'null' ? `
                             <div class="mt-2 p-2 bg-red-50 border border-red-300 rounded">
@@ -1681,14 +1681,14 @@
                             <p class="font-bold text-lg mb-1 text-green-900">${report.interpretation.headline}</p>
                             <p class="text-sm text-green-800">${report.interpretation.description}</p>
                         </div>
-                        <div class="mb-4">
-                            <h4 class="font-semibold mb-2">Sedi esaminate:</h4>
-                            <p class="text-sm text-gray-700">${specimens.map(s => s.site.charAt(0).toUpperCase() + s.site.slice(1)).join(', ')}</p>
-                        </div>
                         <div class="mt-4 p-3 bg-gray-50 rounded text-sm text-gray-600">
                             <p>✓ Nessuna evidenza di malattia infiammatoria intestinale</p>
                             <p>✓ Assenza di displasia</p>
                             <p>✓ Architettura criptica conservata</p>
+                        </div>
+                        <div class="mt-3">
+                            <h4 class="font-semibold mb-2">Sedi esaminate:</h4>
+                            <p class="text-sm text-gray-700">${specimens.map(s => s.site.charAt(0).toUpperCase() + s.site.slice(1)).join(', ')}</p>
                         </div>
                     </div>
                     <div class="flex gap-4 no-print">
@@ -1821,9 +1821,9 @@
                                     const active = isSpecimenActive(s);
                                     return `<tr>
                                         <td class="border p-2 font-semibold">${SITE_LABELS[s.site] || s.site}</td>
-                                        <td class="border p-2 ${active ? 'text-red-600' : 'text-green-600'}">${active ? 'Attiva' : 'Quiescente'}</td>
+                                        <td class="border p-2 ${active ? 'text-red-600' : 'text-green-600'}">${active ? 'Attiva' : (s.siteType === 'ileum' ? 'Nella norma' : 'Quiescente')}</td>
                                         <td class="border p-2 ${s.facPresente ? 'text-orange-600 font-semibold' : 'text-gray-400'}">${s.facPresente ? '🔬 Sì' : '—'}</td>
-                                        <td class="border p-2 ${s.findings.displasia && s.findings.displasia !== 'assente' ? 'text-red-600 font-bold' : ''}">${s.findings.displasia || 'N/A'}</td>
+                                        <td class="border p-2 ${s.findings.displasia && s.findings.displasia !== 'assente' ? 'text-red-600 font-bold' : ''}">${s.findings.displasia || '—'}</td>
                                     </tr>`;
                                 }).join('')}
                             </tbody>
@@ -1943,6 +1943,7 @@
                 const sediNorm = formatSediCampionate(specimens);
                 const facNoteNorm = formatFacNote(specimens);
                 plainText = `${report.interpretation.headline}\n${report.interpretation.description}`;
+                plainText += `\n\n- Nessuna evidenza di malattia infiammatoria intestinale\n- Assenza di displasia\n- Architettura criptica conservata`;
                 if (sediNorm) plainText += `\n\n${sediNorm}`;
                 if (facNoteNorm) plainText += `\n\n${facNoteNorm}`;
             } else if (DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) && report.diagnosiVeloce.testo) {
@@ -1950,7 +1951,7 @@
                 plainText += `\n\nDettaglio per sede:\n`;
                 specimens.forEach(s => {
                     const active = isSpecimenActive(s);
-                    plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${active ? 'Attiva' : 'Quiescente'}`;
+                    plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${active ? 'Attiva' : (s.siteType === 'ileum' ? 'Nella norma' : 'Quiescente')}`;
                     if (s.findings.fibrosi_sottomucosa && s.findings.fibrosi_sottomucosa !== 'assente') plainText += `, fibrosi sottomucosa ${s.findings.fibrosi_sottomucosa}`;
                     if (s.findings.displasia && s.findings.displasia !== 'assente') plainText += `, displasia ${s.findings.displasia}`;
                     plainText += `\n`;
@@ -1975,7 +1976,7 @@
                     const nancyObj = (report.nancy.applicable && s.siteType !== 'ileum') ? calculateNancyPerSpecimen(s) : null;
                     const nancyScore = nancyObj !== null ? (typeof nancyObj === 'object' ? nancyObj.score : nancyObj) : null;
                     const active = isSpecimenActive(s);
-                    plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${active ? 'Attiva' : 'Quiescente'}`;
+                    plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${active ? 'Attiva' : (s.siteType === 'ileum' ? 'Nella norma' : 'Quiescente')}`;
                     if (s.findings.fibrosi_sottomucosa && s.findings.fibrosi_sottomucosa !== 'assente') plainText += `, fibrosi sottomucosa ${s.findings.fibrosi_sottomucosa}`;
                     if (s.findings.displasia && s.findings.displasia !== 'assente') plainText += `, displasia ${s.findings.displasia}`;
                     plainText += `\n`;
@@ -1988,7 +1989,7 @@
                 plainText = `${report.interpretation.headline}\n${report.interpretation.description}\n\nDettaglio per sede:\n`;
                 specimens.forEach(s => {
                     const active = isSpecimenActive(s);
-                    plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${active ? 'Attiva' : 'Quiescente'}`;
+                    plainText += `- ${s.site.charAt(0).toUpperCase() + s.site.slice(1)}: ${active ? 'Attiva' : (s.siteType === 'ileum' ? 'Nella norma' : 'Quiescente')}`;
                     if (s.findings.fibrosi_sottomucosa && s.findings.fibrosi_sottomucosa !== 'assente') plainText += `, fibrosi sottomucosa ${s.findings.fibrosi_sottomucosa}`;
                     if (s.findings.displasia && s.findings.displasia !== 'assente') plainText += `, displasia ${s.findings.displasia}`;
                     plainText += `\n`;
