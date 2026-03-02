@@ -849,7 +849,7 @@
             { codice: 'COLITE_CRONICA_ASPECIFICA', emoji: '🔲', label: 'Colite cr. aspecifica', testo: 'Mucosa del grosso intestino contrassegnata da struttura ghiandolare conservata, attività mucipara conservata, infiltrato linfoplasmacellulare lievemente aumentato. Quadro di colite cronica di grado lieve, quiescente, esente da caratteristiche di specificità.', gruppo: 'altre' },
             { codice: 'COLITE_COLLAGENA', emoji: '🔬', label: 'Colite collagenosica', testo: 'Colite microscopica, tipo collagenosica. Banda collagene subepiteliale ispessita (≥10μm). Architettura ghiandolare conservata.', gruppo: 'altre' },
             { codice: 'COLITE_LINFOCITICA', emoji: '🔬', label: 'Colite Linfocitica', testo: 'Colite microscopica, tipo linfocitica. Linfociti intraepiteliali aumentati (≥20/100 cellule epiteliali). Architettura ghiandolare conservata.', gruppo: 'altre' },
-            { codice: 'COLITE_INFETTIVA', emoji: '🦠', label: 'Colite Infettiva', testo: 'Colite acuta con pattern superficiale e architettura conservata, compatibile con eziologia infettiva.', gruppo: 'altre' },
+            { codice: 'COLITE_INFETTIVA', emoji: '🦠', label: 'Colite Infettiva', testo: 'Colite acuta con pattern infiammatorio superficiale e architettura ghiandolare conservata, compatibile con eziologia infettiva.', gruppo: 'altre' },
             { codice: 'COLITE_ISCHEMICA', emoji: '💔', label: 'Colite Ischemica', testo: 'Colite con pattern ischemico. Correlare con sede e fattori di rischio cardiovascolare.', gruppo: 'altre' },
             { codice: 'COLITE_FANS', emoji: '💊', label: 'Colite da FANS', testo: 'Colite/enteropatia da FANS. Confermare anamnesi farmacologica.', gruppo: 'altre' },
             { codice: 'SCAD', emoji: '🔘', label: 'SCAD', testo: 'Colite cronica segmentale associata a diverticolosi (SCAD). Flogosi cronica attiva limitata al segmento con diverticoli, retto indenne.', gruppo: 'altre' }
@@ -872,7 +872,7 @@
         const formatFacNote = (specimenList) => {
             const facSedi = specimenList.filter(s => s.facPresente && s.siteType !== 'ileum').map(s => SITE_LABELS[s.site] || s.site);
             if (facSedi.length === 0) return null;
-            return `Colite attiva focale (FAC) rilevata in: ${facSedi.join(', ')}. Reperto aspecifico; correlazione clinico-endoscopica e anamnesi farmacologica raccomandate.`;
+            return `Colite attiva focale (FAC) rilevata in: ${facSedi.join(', ')}. Il reperto di FAC è morfologicamente aspecifico. In assenza di alterazioni endoscopiche, si associa comunemente a condizioni transitorie (es. danno da farmaci/FANS, esiti infettivi) o a sindrome dell'intestino irritabile (IBS). Si consiglia stretta correlazione clinico-endoscopica (Soubra & Nasser, Human Pathology 2026).`;
         };
 
         const formatSediCampionate = (specimenList) => {
@@ -1109,11 +1109,11 @@
             const n = selectedSites.length;
             const counter = document.getElementById('site-selection-counter');
             const btn = document.getElementById('btn-confirm-sites');
-            if (counter) counter.textContent = n > 0 ? (n + ' sede' + (n > 1 ? 'i' : '') + ' selezionat' + (n > 1 ? 'e' : 'a')) : '';
+            if (counter) counter.textContent = n > 0 ? (n + ' ' + (n > 1 ? 'sedi' : 'sede') + ' selezionat' + (n > 1 ? 'e' : 'a')) : '';
             if (btn) {
                 btn.disabled = n === 0;
                 btn.className = 'w-full py-3 rounded-lg font-bold text-white transition-all ' + (n === 0 ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700');
-                btn.textContent = n === 0 ? 'Seleziona almeno una sede →' : '▶ Avanti con ' + n + ' sede' + (n > 1 ? 'i' : '');
+                btn.textContent = n === 0 ? 'Seleziona almeno una sede →' : '▶ Avanti con ' + n + ' ' + (n > 1 ? 'sedi' : 'sede');
             }
             // Aggiorna le checkbox visivamente
             document.querySelectorAll('input[type=checkbox][onchange*=toggleSiteSelection]').forEach(cb => {
@@ -1137,11 +1137,11 @@
             const counter = document.getElementById('site-selection-counter');
             const btn = document.getElementById('btn-confirm-sites');
             const n = selectedSites.length;
-            if (counter) counter.textContent = n > 0 ? (n + ' sede' + (n > 1 ? 'i' : '') + ' selezionat' + (n > 1 ? 'e' : 'a')) : '';
+            if (counter) counter.textContent = n > 0 ? (n + ' ' + (n > 1 ? 'sedi' : 'sede') + ' selezionat' + (n > 1 ? 'e' : 'a')) : '';
             if (btn) {
                 btn.disabled = n === 0;
                 btn.className = 'w-full py-3 rounded-lg font-bold text-white transition-all ' + (n === 0 ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700');
-                btn.textContent = n === 0 ? 'Seleziona almeno una sede →' : '▶ Avanti con ' + n + ' sede' + (n > 1 ? 'i' : '');
+                btn.textContent = n === 0 ? 'Seleziona almeno una sede →' : '▶ Avanti con ' + n + ' ' + (n > 1 ? 'sedi' : 'sede');
             }
         };
 
@@ -1299,12 +1299,12 @@
                 <div class="flex items-center gap-3 mt-4 flex-wrap">
                     <button onclick="selectAllStandardSites()" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600 transition-all">☑ Seleziona 7 Standard</button>
                     <button onclick="deselectAllSites()" class="bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 transition-all">✕ Deseleziona</button>
-                    <span id="site-selection-counter" class="text-sm font-semibold text-blue-700 ml-2">${selectedSites.length > 0 ? `${selectedSites.length} sede${selectedSites.length > 1 ? 'i' : ''} selezionat${selectedSites.length > 1 ? 'e' : 'a'}` : ''}</span>
+                    <span id="site-selection-counter" class="text-sm font-semibold text-blue-700 ml-2">${selectedSites.length > 0 ? `${selectedSites.length} ${selectedSites.length > 1 ? 'sedi' : 'sede'} selezionat${selectedSites.length > 1 ? 'e' : 'a'}` : ''}</span>
                 </div>
                 <div class="mt-4">
                     <button id="btn-confirm-sites" onclick="proceedFromSiteSelection()" ${selectedSites.length === 0 ? 'disabled' : ''}
                         class="w-full py-3 rounded-lg font-bold text-white transition-all ${selectedSites.length === 0 ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}">
-                        ${selectedSites.length === 0 ? 'Seleziona almeno una sede →' : `▶ Avanti con ${selectedSites.length} sede${selectedSites.length > 1 ? 'i' : ''}`}
+                        ${selectedSites.length === 0 ? 'Seleziona almeno una sede →' : `▶ Avanti con ${selectedSites.length} ${selectedSites.length > 1 ? 'sedi' : 'sede'}`}
                     </button>
                 </div>
             </div>`;
@@ -1712,6 +1712,12 @@
                     ` : DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) && report.diagnosiVeloce.testo ? `
                         <div class="mb-4 p-4 bg-gray-50 border-l-4 border-gray-400 rounded">
                             <p class="text-sm text-gray-800">${report.diagnosiVeloce.testo}</p>
+                            ${(() => {
+                                const sediAttive = specimens.filter(s => isSpecimenActive(s)).map(s => SITE_LABELS[s.site] || s.site);
+                                return sediAttive.length > 0
+                                    ? `<p class="text-sm text-red-700 mt-2 font-semibold">⚠️ Attività infiammatoria acuta in: ${sediAttive.join(', ')}.</p>`
+                                    : '';
+                            })()}
                         </div>
                     ` : `
                         <div class="mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded">
@@ -1823,7 +1829,7 @@
                                         <td class="border p-2 font-semibold">${SITE_LABELS[s.site] || s.site}</td>
                                         <td class="border p-2 ${active ? 'text-red-600' : 'text-green-600'}">${active ? 'Attiva' : (s.siteType === 'ileum' ? 'Nella norma' : 'Quiescente')}</td>
                                         <td class="border p-2 ${s.facPresente ? 'text-orange-600 font-semibold' : 'text-gray-400'}">${s.facPresente ? '🔬 Sì' : '—'}</td>
-                                        <td class="border p-2 ${s.findings.displasia && s.findings.displasia !== 'assente' ? 'text-red-600 font-bold' : ''}">${s.findings.displasia || '—'}</td>
+                                        <td class="border p-2 ${s.findings.displasia && s.findings.displasia !== 'assente' ? 'text-red-600 font-bold' : ''}">${(s.findings.displasia && s.findings.displasia !== 'assente') ? s.findings.displasia : '—'}</td>
                                     </tr>`;
                                 }).join('')}
                             </tbody>
@@ -1948,6 +1954,8 @@
                 if (facNoteNorm) plainText += `\n\n${facNoteNorm}`;
             } else if (DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) && report.diagnosiVeloce.testo) {
                 plainText = report.diagnosiVeloce.testo;
+                const sediAttiveCopy = specimens.filter(s => isSpecimenActive(s)).map(s => SITE_LABELS[s.site] || s.site);
+                if (sediAttiveCopy.length > 0) plainText += `\nAttività infiammatoria acuta in: ${sediAttiveCopy.join(', ')}.`;
                 plainText += `\n\nDettaglio per sede:\n`;
                 specimens.forEach(s => {
                     const active = isSpecimenActive(s);
