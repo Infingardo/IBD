@@ -1033,20 +1033,24 @@
 
             if (DIAGNOSI_CON_NANCY.includes(diagnosiCode)) {
                 const isRemission = diagnosiCode === 'IBD_REMISSIONE';
+                // Nancy ha senso solo in follow-up RCU nota: chiedi il grado solo in quel caso.
+                // In prima diagnosi chiedi solo il "grado di attività" (senza etichetta Nancy).
+                const nancyApplicabile = ibdNota.enabled && ibdNota.diagnosiAttuale === 'RCU';
+                const modalTitle = nancyApplicabile ? 'Nancy Histological Index' : 'Grado di attività infiammatoria';
+                const modalColor = nancyApplicabile ? '#1d4ed8' : '#4b5563';
                 showInputModal({
-                    title: 'Nancy Histological Index',
-                    headerColor: '#1d4ed8',
+                    title: modalTitle,
+                    headerColor: modalColor,
                     desc: isRemission
-                        ? ['<strong>Grado 0</strong> — Remissione completa',
-                           '<strong>Grado 1</strong> — Remissione con alterazioni croniche ⭐',
-                           '<strong>Grado 2</strong> — Attività lieve residua',
-                           '<strong>Grado 3</strong> — Attività moderata',
-                           '<strong>Grado 4</strong> — Attività severa']
-                        : ['<strong>Grado 0</strong> — Remissione',
-                           '<strong>Grado 1</strong> — Remissione con alterazioni croniche',
-                           '<strong>Grado 2</strong> — Attività lieve',
-                           '<strong>Grado 3</strong> — Attività moderata (ascessi criptici)',
-                           '<strong>Grado 4</strong> — Attività severa (ulcerazione)'],
+                        ? ['<strong>0</strong> — Normale / Remissione completa',
+                           '<strong>1</strong> — Alterazioni croniche senza attività acuta ⭐',
+                           '<strong>2</strong> — Attività lieve',
+                           '<strong>3</strong> — Attività moderata',
+                           '<strong>4</strong> — Attività severa']
+                        : ['<strong>1</strong> — Alterazioni croniche senza attività',
+                           '<strong>2</strong> — Attività lieve ⭐',
+                           '<strong>3</strong> — Attività moderata (ascessi criptici)',
+                           '<strong>4</strong> — Attività severa (ulcerazione)'],
                     unit: '/ 4',
                     min: 0, max: 4,
                     defaultVal: isRemission ? 1 : 2,
@@ -1678,6 +1682,7 @@
                     .replace(/Verifica[^.]*\.\s*/gi, '')
                     .trim();
                 if (descExtra) t += `${descExtra}\n`;
+
             }
 
             // ── DETTAGLIO PER SEDE ────────────────────────────────────────────
