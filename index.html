@@ -1724,19 +1724,52 @@
             return t;
         };
 
+        const generateHtmlReferto = () => {
+            const plain = generatePlainTextReferto();
+            let html = plain
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            html = html.replace(
+                /(Nancy Histological Index[^\n]*)/g,
+                '<strong>$1</strong>'
+            );
+            html = html.replace(/\n/g, '<br>\n');
+            return `<!DOCTYPE html><html><body><p style="font-family:Arial,sans-serif;font-size:10pt;">${html}</p></body></html>`;
+        };
+
         const copyReferto = () => {
             const text = generatePlainTextReferto();
-            navigator.clipboard.writeText(text)
-                .then(() => alert('✅ Referto copiato!'))
-                .catch(() => {
-                    const ta = document.createElement('textarea');
-                    ta.value = text;
-                    document.body.appendChild(ta);
-                    ta.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(ta);
-                    alert('✅ Copiato!');
+            const html = generateHtmlReferto();
+            if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
+                const item = new ClipboardItem({
+                    'text/plain': new Blob([text], { type: 'text/plain' }),
+                    'text/html':  new Blob([html],  { type: 'text/html' })
                 });
+                navigator.clipboard.write([item])
+                    .then(() => alert('✅ Referto copiato! (Nancy in grassetto)'))
+                    .catch(() => {
+                        navigator.clipboard.writeText(text)
+                            .then(() => alert('✅ Referto copiato!'))
+                            .catch(() => {
+                                const ta = document.createElement('textarea');
+                                ta.value = text; document.body.appendChild(ta);
+                                ta.select(); document.execCommand('copy');
+                                document.body.removeChild(ta);
+                                alert('✅ Copiato!');
+                            });
+                    });
+            } else {
+                navigator.clipboard.writeText(text)
+                    .then(() => alert('✅ Referto copiato!'))
+                    .catch(() => {
+                        const ta = document.createElement('textarea');
+                        ta.value = text; document.body.appendChild(ta);
+                        ta.select(); document.execCommand('copy');
+                        document.body.removeChild(ta);
+                        alert('✅ Copiato!');
+                    });
+            }
         };
 
         const saveData = () => {
