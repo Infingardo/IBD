@@ -1727,11 +1727,12 @@
             } else if (report.diagnosiVeloce.selected === 'COLITE_FAC') {
                 const facSediNomi = specimens.filter(s => s.facPresente).map(s => SITE_LABELS[s.site] || s.site);
                 if (facSediNomi.length === 0) {
-                    t += `Mucosa colica istologicamente nella norma.\n`;
-                } else if (facSediNomi.length === 1) {
-                    t += `Colite attiva focale (FAC) a carico del ${facSediNomi[0].toLowerCase()}.\n`;
+                    t += `Mucosa del grosso intestino con architettura ghiandolare preservata. Assenza di segni di flogosi acuta e di cronicità istologica (plasmocitosi basale, distorsione architettonica).\n`;
                 } else {
-                    t += `Colite attiva focale (FAC) a carico di: ${facSediNomi.join(', ')}.\n`;
+                    const sediStr = facSediNomi.length === 1
+                        ? facSediNomi[0].toLowerCase()
+                        : facSediNomi.slice(0, -1).map(s => s.toLowerCase()).join(', ') + ' e ' + facSediNomi[facSediNomi.length - 1].toLowerCase();
+                    t += `Mucosa del grosso intestino con architettura ghiandolare preservata e focale attività acuta (criptite) a livello del ${sediStr}. Assenza di segni di cronicità istologica (plasmocitosi basale, distorsione architettonica). I reperti, sebbene aspecifici, si inquadrano nel pattern della Colite Attiva Focale (FAC).\n`;
                 }
             } else if (DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) && report.diagnosiVeloce.testo) {
                 // Colite infettiva: testo con grading per sede
