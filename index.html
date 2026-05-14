@@ -100,6 +100,24 @@
 </head>
 <body class="bg-gray-50 p-4">
 
+    <!-- Modal selezione sedi FAC -->
+    <div id="fac-site-modal" class="modal-overlay hidden" onclick="facModalBackdropClick(event)">
+        <div class="modal-content" style="max-width:420px">
+            <div class="modal-header p-4 rounded-t-xl" style="background:#ea580c">
+                <h2 class="text-lg font-bold text-white">🔬 Sedi con colite attiva focale (FAC)</h2>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-sm text-gray-700 mb-3">Seleziona le sedi in cui è presente FAC:</p>
+                <div id="fac-site-checkboxes" class="space-y-2"></div>
+                <p class="text-xs text-gray-500 mt-3">Le sedi non selezionate risulteranno nella norma.</p>
+            </div>
+            <div class="modal-footer p-4 bg-gray-50 rounded-b-xl flex gap-3">
+                <button onclick="facModalCancel()" class="flex-1 border-2 border-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-100">Annulla</button>
+                <button onclick="facModalConfirm()" class="flex-1 bg-orange-600 text-white py-2 rounded-lg font-semibold hover:bg-orange-700">Conferma</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Disclaimer -->
     <div id="disclaimer-modal" class="modal-overlay hidden">
         <div class="modal-content">
@@ -837,6 +855,7 @@
             { codice: 'COLITE_INFETTIVA', emoji: '🦠', label: 'Colite Infettiva', testo: 'Colite acuta con pattern infiammatorio superficiale e architettura ghiandolare conservata, compatibile con eziologia infettiva.', gruppo: 'altre' },
             { codice: 'COLITE_ISCHEMICA', emoji: '💔', label: 'Colite Ischemica', testo: 'Colite con pattern ischemico. Correlare con sede e fattori di rischio cardiovascolare.', gruppo: 'altre' },
             { codice: 'COLITE_FANS', emoji: '💊', label: 'Colite da FANS', testo: 'Colite/enteropatia da FANS. Confermare anamnesi farmacologica.', gruppo: 'altre' },
+            { codice: 'COLITE_FAC', emoji: '🔬', label: 'Colite attiva focale', testo: null, gruppo: 'altre' },
             { codice: 'SCAD', emoji: '🔘', label: 'SCAD', testo: 'Colite cronica segmentale associata a diverticolosi (SCAD). Flogosi cronica attiva limitata al segmento con diverticoli, retto indenne.', gruppo: 'altre' }
         ];
 
@@ -961,11 +980,17 @@
                         if (isIleum) findings = { ...DEFAULT_ILEUM_FINDINGS };
                         else if (site === 'sigma') { findings = { ...DEFAULT_COLON_FINDINGS }; findings.distorsione_architettura = 'presente'; findings.neutrofili_epitelio = 'lieve'; }
                         else findings = { ...DEFAULT_COLON_FINDINGS }; break;
+                    case 'COLITE_FAC':
+                        findings = isIleum ? { ...DEFAULT_ILEUM_FINDINGS } : { ...DEFAULT_COLON_FINDINGS };
+                        // Lieve attività focale solo nelle sedi FAC
+                        if (!isIleum && _facSelectedSites.includes(site)) findings.neutrofili_epitelio = 'lieve';
+                        break;
                     case 'COLITE_CRONICA_ASPECIFICA':
                         findings = isIleum ? { ...DEFAULT_ILEUM_FINDINGS } : { ...DEFAULT_COLON_FINDINGS, plasmacellule_basale: 'presente' }; break;
                     default: findings = isIleum ? { ...DEFAULT_ILEUM_FINDINGS } : { ...DEFAULT_COLON_FINDINGS };
                 }
-                specimens.push({ site, findings, siteType: isIleum ? 'ileum' : 'colon', mucinGranulomaLikely: false, facPresente: false });
+                const isFac = diagnosiCode === 'COLITE_FAC' && !isIleum && _facSelectedSites.includes(site);
+                specimens.push({ site, findings, siteType: isIleum ? 'ileum' : 'colon', mucinGranulomaLikely: false, facPresente: isFac });
             });
             const opt = diagnosiVeloceOptions.find(o => o.codice === diagnosiCode);
             diagnosiVeloce.selected = diagnosiCode; diagnosiVeloce.testo = opt ? opt.testo : null;
@@ -976,6 +1001,8 @@
 
         // ==================== INPUT MODAL ====================
         let _inputModalCallback = null;
+        let _facSelectedSites = [];
+        let _facModalCallback = null;
         let _inputModalMin = 0;
         let _inputModalMax = 100;
 
@@ -1019,6 +1046,29 @@
 
         const inputModalBackdropClick = (e) => {
             if (e.target.id === 'input-modal') inputModalCancel();
+        };
+
+        const showFacSiteModal = (colonSites, callback) => {
+            _facModalCallback = callback;
+            const container = document.getElementById('fac-site-checkboxes');
+            container.innerHTML = colonSites.map(site => `
+                <label class="flex items-center gap-3 p-2 bg-orange-50 rounded border border-orange-200 cursor-pointer hover:bg-orange-100">
+                    <input type="checkbox" value="${site}" class="w-4 h-4 accent-orange-600">
+                    <span class="text-sm font-semibold">${SITE_LABELS[site] || site}</span>
+                </label>`).join('');
+            document.getElementById('fac-site-modal').classList.remove('hidden');
+        };
+        const facModalCancel = () => {
+            document.getElementById('fac-site-modal').classList.add('hidden');
+            _facModalCallback = null;
+        };
+        const facModalConfirm = () => {
+            const checked = [...document.querySelectorAll('#fac-site-checkboxes input:checked')].map(cb => cb.value);
+            document.getElementById('fac-site-modal').classList.add('hidden');
+            if (_facModalCallback) { _facModalCallback(checked); _facModalCallback = null; }
+        };
+        const facModalBackdropClick = (e) => {
+            if (e.target.id === 'fac-site-modal') facModalCancel();
         };
 
         const applyDiagnosiVeloce = (diagnosiCode) => {
@@ -1088,6 +1138,15 @@
                         generateSpecimensFromDiagnosi(diagnosiCode);
                         finalize();
                     }
+                });
+            } else if (diagnosiCode === 'COLITE_FAC') {
+                const colonSites = selectedSites.filter(s => s !== 'ileo' && !SPECIAL_SITES.includes(s));
+                if (colonSites.length === 0) { alert('Nessuna sede colica selezionata.'); return; }
+                showFacSiteModal(colonSites, (facSites) => {
+                    _facSelectedSites = facSites;
+                    generateSpecimensFromDiagnosi('COLITE_FAC');
+                    _facSelectedSites = [];
+                    finalize();
                 });
             } else {
                 generateSpecimensFromDiagnosi(diagnosiCode);
@@ -1294,7 +1353,7 @@
 
         const SiteSelectionWithDiagnosi = () => {
             const ibdOpts = diagnosiVeloceOptions.filter(o => o.gruppo === 'ibd');
-            const altreOpts = diagnosiVeloceOptions.filter(o => o.gruppo === 'altre');
+            const altreOpts = diagnosiVeloceOptions.filter(o => o.gruppo === 'altre' && !(o.codice === 'COLITE_FAC' && ibdNota.enabled));
             return `<div class="bg-green-50 rounded-lg p-6 mb-6 border-2 border-green-400">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-xl font-bold flex items-center gap-2"><span>⚡</span> STEP 2: Scegli Diagnosi (${selectedSites.length} sedi)</h3>
@@ -1665,10 +1724,40 @@
                     t += `\nNancy Histological Index = ${report.nancy.score}/4 — ${report.nancy.interpretation.label}`;
                     t += ` (Marchal-Bressenot et al., Gut 2017; Travis et al., Gut 2019)\n`;
                 }
+            } else if (report.diagnosiVeloce.selected === 'COLITE_FAC') {
+                const facSediNomi = specimens.filter(s => s.facPresente).map(s => SITE_LABELS[s.site] || s.site);
+                if (facSediNomi.length === 0) {
+                    t += `Mucosa colica istologicamente nella norma.\n`;
+                } else if (facSediNomi.length === 1) {
+                    t += `Colite attiva focale (FAC) a carico del ${facSediNomi[0].toLowerCase()}.\n`;
+                } else {
+                    t += `Colite attiva focale (FAC) a carico di: ${facSediNomi.join(', ')}.\n`;
+                }
             } else if (DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) && report.diagnosiVeloce.testo) {
-                t += `${report.diagnosiVeloce.testo}\n`;
-                const sediAttive = specimens.filter(s => isSpecimenActive(s)).map(s => SITE_LABELS[s.site] || s.site);
-                if (sediAttive.length > 0) t += `Attività infiammatoria acuta in: ${sediAttive.join(', ')}.\n`;
+                // Colite infettiva: testo con grading per sede
+                if (report.diagnosiVeloce.selected === 'COLITE_INFETTIVA') {
+                    const gradeAttivita = (s) => {
+                        const f = s.findings;
+                        if (s.siteType === 'ileum') return 'Inattiva';
+                        if (f.ulcerazione === 'presente') return 'Severa';
+                        if (f.neutrofili_epitelio === 'moderata' || f.neutrofili_epitelio === 'marcata' || f.ascessi_criptici === 'presente') return 'Moderata';
+                        if (f.neutrofili_epitelio === 'lieve') return 'Lieve';
+                        return 'Inattiva';
+                    };
+                    const gradeOrder = { 'Inattiva': 0, 'Lieve': 1, 'Moderata': 2, 'Severa': 3 };
+                    const gradeLabel = { 0: 'inattiva', 1: 'lieve', 2: 'moderata', 3: 'severa' };
+                    const grades = specimens.map(s => gradeOrder[gradeAttivita(s)]);
+                    const maxGrade = Math.max(...grades);
+                    if (maxGrade === 0) {
+                        t += `Colite cronica inattiva, pattern morfologico compatibile con eziologia infettiva in fase di risoluzione.\n`;
+                    } else {
+                        t += `Colite cronica attiva di grado ${gradeLabel[maxGrade]}, pattern morfologico compatibile con eziologia infettiva.\n`;
+                    }
+                } else {
+                    t += `${report.diagnosiVeloce.testo}\n`;
+                    const sediAttive = specimens.filter(s => isSpecimenActive(s)).map(s => SITE_LABELS[s.site] || s.site);
+                    if (sediAttive.length > 0) t += `Attività infiammatoria acuta in: ${sediAttive.join(', ')}.\n`;
+                }
             } else {
                 t += `${report.interpretation.headline}\n`;
                 // description ripete l'headline; la includiamo solo se aggiunge info nuova
@@ -1687,9 +1776,19 @@
 
             // ── DETTAGLIO PER SEDE ────────────────────────────────────────────
             t += `\nDettaglio per sede:\n`;
+            const isColiteInfettiva = report.diagnosiVeloce.selected === 'COLITE_INFETTIVA';
             specimens.forEach(s => {
-                const active = isSpecimenActive(s);
-                const statoLabel = active ? 'Attiva' : (s.siteType === 'ileum' ? 'Nella norma' : 'Quiescente');
+                let statoLabel;
+                if (isColiteInfettiva && s.siteType !== 'ileum') {
+                    const f = s.findings;
+                    if (f.ulcerazione === 'presente') statoLabel = 'Severa';
+                    else if (f.neutrofili_epitelio === 'moderata' || f.neutrofili_epitelio === 'marcata' || f.ascessi_criptici === 'presente') statoLabel = 'Moderata';
+                    else if (f.neutrofili_epitelio === 'lieve') statoLabel = 'Lieve';
+                    else statoLabel = 'Inattiva';
+                } else {
+                    const active = isSpecimenActive(s);
+                    statoLabel = active ? 'Attiva' : (s.siteType === 'ileum' ? 'Nella norma' : 'Quiescente');
+                }
                 t += `- ${SITE_LABELS[s.site] || s.site}: ${statoLabel}`;
                 if (s.findings.fibrosi_sottomucosa && s.findings.fibrosi_sottomucosa !== 'assente')
                     t += `, fibrosi sottomucosa ${s.findings.fibrosi_sottomucosa}`;
@@ -1701,8 +1800,11 @@
 
             const sediLine = formatSediCampionate(specimens);
             if (sediLine) t += `\n${sediLine}`;
-            const facNote = formatFacNote(specimens);
-            if (facNote) t += `\n\n${facNote}`;
+            // Per COLITE_FAC le sedi sono già nell'intestazione — la nota generica sarebbe ridondante
+            if (report.diagnosiVeloce.selected !== 'COLITE_FAC') {
+                const facNote = formatFacNote(specimens);
+                if (facNote) t += `\n\n${facNote}`;
+            }
 
             // ── CMV ──────────────────────────────────────────────────────────
             if (report.ihcData.cmv_status === 'positivo') {
@@ -1724,16 +1826,21 @@
             return t;
         };
 
+        // Versione HTML del referto: identica al plain text ma con Nancy in grassetto.
+        // Usata per il clipboard HTML (text/html) che i LIS e word processor accettano.
         const generateHtmlReferto = () => {
             const plain = generatePlainTextReferto();
+            // Escape HTML base
             let html = plain
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;');
+            // Metti in grassetto la riga che inizia con "Nancy Histological Index"
             html = html.replace(
                 /(Nancy Histological Index[^\n]*)/g,
                 '<strong>$1</strong>'
             );
+            // Converti newline in <br>
             html = html.replace(/\n/g, '<br>\n');
             return `<!DOCTYPE html><html><body><p style="font-family:Arial,sans-serif;font-size:10pt;">${html}</p></body></html>`;
         };
@@ -1741,6 +1848,7 @@
         const copyReferto = () => {
             const text = generatePlainTextReferto();
             const html = generateHtmlReferto();
+            // Prova prima con ClipboardItem (dual format: plain + HTML con bold Nancy)
             if (typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write) {
                 const item = new ClipboardItem({
                     'text/plain': new Blob([text], { type: 'text/plain' }),
@@ -1749,6 +1857,7 @@
                 navigator.clipboard.write([item])
                     .then(() => alert('✅ Referto copiato! (Nancy in grassetto)'))
                     .catch(() => {
+                        // Fallback: plain text
                         navigator.clipboard.writeText(text)
                             .then(() => alert('✅ Referto copiato!'))
                             .catch(() => {
@@ -1760,6 +1869,7 @@
                             });
                     });
             } else {
+                // Fallback per browser senza ClipboardItem
                 navigator.clipboard.writeText(text)
                     .then(() => alert('✅ Referto copiato!'))
                     .catch(() => {
@@ -1871,6 +1981,9 @@
         window.deselectAllSites = deselectAllSites;
         window.applyDiagnosiVeloce = applyDiagnosiVeloce;
         window.copyReferto = copyReferto;
+        window.facModalCancel = facModalCancel;
+        window.facModalConfirm = facModalConfirm;
+        window.facModalBackdropClick = facModalBackdropClick;
 
         loadData();
         checkDisclaimer();
