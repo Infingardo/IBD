@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v3.1.3</title>
+    <title>IBD Diagnostic Tool v3.1.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body, body *, h1, h2, h3, h4, h5, h6, p, div, span, td, th, li, button, input, select {
@@ -154,7 +154,7 @@
                 </div>
                 <div class="bg-gray-100 p-3 rounded">
                     <p class="text-xs text-gray-700 italic">
-                        v3.1.3: Fix topografico pouch · FAC per sede · versioning allineato · Nancy solo RCU follow-up · Punteggio qualitativo (no percentuali)
+                        v3.1.4: Fix edit colon (erosioni_ulcerazioni rimossa) · mucinGranulomaLikely manuale · label Nancy contestuale
                     </p>
                 </div>
             </div>
@@ -200,13 +200,13 @@
         <!-- Header -->
         <div class="mb-4 border-b pb-4">
             <h1 class="text-3xl font-bold text-blue-900 mb-2">
-                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.1.3</span>
+                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.1.4</span>
             </h1>
             <p class="text-sm text-gray-600">
                 Supporto diagnosi differenziale Malattie Infiammatorie Croniche Intestinali
             </p>
             <p class="text-xs text-gray-500 mt-1">
-                v3.1.3: Fix topografico pouch · FAC per sede · versioning allineato · Nancy Index limitato a RCU nota in follow-up · Scoring qualitativo senza percentuali
+                v3.1.4: Fix erosioni_ulcerazioni in edit colon · mucinGranulomaLikely manuale in modifica · label Nancy contestuale
             </p>
         </div>
 
@@ -247,7 +247,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '3.1.3';
+        const APP_VERSION = '3.1.4';
         const STORAGE_KEY = 'ibdAppDataV310';
         const DISCLAIMER_KEY = 'ibdDisclaimerAccepted';
 
@@ -1220,6 +1220,13 @@
             else { container.classList.add('hidden'); const cb = document.getElementById(`mucin-granuloma-checkbox-${siteIndex}`); if (cb) cb.checked = false; }
         };
 
+        const toggleEditMucinCheckbox = (granulomaValue) => {
+            const container = document.getElementById('edit-mucin-checkbox-container');
+            if (!container) return;
+            if (granulomaValue === 'presente' || granulomaValue === 'sospetti') container.classList.remove('hidden');
+            else { container.classList.add('hidden'); const cb = document.getElementById('edit-mucin-granuloma-checkbox'); if (cb) cb.checked = false; }
+        };
+
         const addAllSpecimens = () => {
             if (caseLocked) return;
             wizardSaveCurrent();
@@ -1368,7 +1375,7 @@
                                 class="p-3 rounded-lg text-sm font-medium transition-all bg-white border-2 border-green-300 hover:bg-green-100 hover:border-green-500 text-left">
                                 <span class="text-xl">${opt.emoji}</span>
                                 <span class="block text-xs mt-1 font-bold">${opt.label}</span>
-                                ${DIAGNOSI_CON_NANCY.includes(opt.codice) ? '<span class="block text-xs text-green-600">→ chiede Nancy</span>' : ''}
+                                ${DIAGNOSI_CON_NANCY.includes(opt.codice) ? `<span class="block text-xs text-green-600">→ ${ibdNota.enabled && ibdNota.diagnosiAttuale === 'RCU' ? 'chiede Nancy' : 'chiede grado attività'}</span>` : ''}
                             </button>`).join('')}
                     </div>
                 </div>
@@ -1546,16 +1553,24 @@
             const isIleum = spec.siteType === 'ileum';
             const findingLabels = { granulomi_epitelioidi: 'Granulomi epitelioidi', neutrofili_epitelio: 'Neutrofili epitelio', neutrofili_lamina_propria: 'Neutrofili LP', ascessi_criptici: 'Ascessi criptici', plasmacellule_basale: 'Plasmacellule basale', distorsione_architettura: 'Distorsione architettura', erosioni_ulcerazioni: 'Erosioni/ulcerazioni', metaplasia_paneth: 'Metaplasia Paneth', ulcerazione: 'Ulcerazione', fibrosi_sottomucosa: 'Fibrosi sottomucosa', displasia: 'Displasia', iperplasia_linfoide: 'Iperplasia linfoide', edema_lamina_propria: 'Edema LP', atrofia_villi: 'Atrofia villi', plasmacellule_aumentate: 'Plasmacellule aumentate' };
             const findingOptions = { granulomi_epitelioidi: ['assente','presente','sospetti'], neutrofili_epitelio: ['assente','lieve','moderata','marcata'], neutrofili_lamina_propria: ['assente','lieve','moderata','marcata'], ascessi_criptici: ['assente','presente'], plasmacellule_basale: ['assente','presente'], distorsione_architettura: ['assente','presente'], erosioni_ulcerazioni: ['assente','presente'], metaplasia_paneth: ['assente','presente'], ulcerazione: ['assente','presente'], fibrosi_sottomucosa: ['assente','lieve','moderata','marcata'], displasia: ['assente','indefinita','LGD','HGD'], iperplasia_linfoide: ['assente','presente'], edema_lamina_propria: ['assente','presente'], atrofia_villi: ['assente','lieve','moderata','marcata'], plasmacellule_aumentate: ['assente','presente'] };
-            const findingKeys = isIleum ? ['granulomi_epitelioidi','neutrofili_lamina_propria','erosioni_ulcerazioni','iperplasia_linfoide','edema_lamina_propria','atrofia_villi','plasmacellule_aumentate','fibrosi_sottomucosa'] : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','erosioni_ulcerazioni','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
+            const findingKeys = isIleum ? ['granulomi_epitelioidi','neutrofili_lamina_propria','erosioni_ulcerazioni','iperplasia_linfoide','edema_lamina_propria','atrofia_villi','plasmacellule_aumentate','fibrosi_sottomucosa'] : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
             return `<div class="bg-amber-50 rounded-lg p-6 mb-6 border-2 border-amber-400">
                 <h3 class="text-xl font-bold mb-4 flex items-center gap-2">✏️ Modifica: <span>${SITE_LABELS[spec.site] || spec.site}</span></h3>
                 <div class="grid grid-cols-2 gap-4">
                     ${findingKeys.map(key => `<div>
                         <label class="block text-sm font-semibold mb-1 ${key === 'displasia' ? 'text-red-700' : ''}">${findingLabels[key]}</label>
-                        <select id="edit-finding-${key}" class="w-full p-2 border rounded ${key === 'displasia' ? 'border-red-300' : ''}">
+                        <select id="edit-finding-${key}" class="w-full p-2 border rounded ${key === 'displasia' ? 'border-red-300' : ''}"
+                            ${key === 'granulomi_epitelioidi' ? 'onchange="toggleEditMucinCheckbox(this.value)"' : ''}>
                             ${findingOptions[key].map(opt => `<option value="${opt}" ${spec.findings[key] === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                         </select>
                     </div>`).join('')}
+                </div>
+                <div id="edit-mucin-checkbox-container" class="${(spec.findings.granulomi_epitelioidi === 'presente' || spec.findings.granulomi_epitelioidi === 'sospetti') ? '' : 'hidden'} bg-yellow-50 p-3 border border-yellow-400 rounded mt-3">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="edit-mucin-granuloma-checkbox" class="w-4 h-4" ${spec.mucinGranulomaLikely ? 'checked' : ''}>
+                        <span class="text-sm font-semibold text-yellow-900">⚠️ Rottura criptale/Granuloma mucinoso plausibile?</span>
+                    </label>
+                    <p class="text-xs text-yellow-800 mt-1">Spunta se granulomi potrebbero essere da rottura criptale (riduce peso Crohn)</p>
                 </div>
                 <div class="flex gap-3 mt-6">
                     <button onclick="updateSpecimen()" class="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700">✓ Salva</button>
@@ -1684,14 +1699,12 @@
             const isIleum = spec.siteType === 'ileum';
             const findingKeys = isIleum
                 ? ['granulomi_epitelioidi','neutrofili_lamina_propria','erosioni_ulcerazioni','iperplasia_linfoide','edema_lamina_propria','atrofia_villi','plasmacellule_aumentate','fibrosi_sottomucosa']
-                : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','erosioni_ulcerazioni','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
+                : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
             const newFindings = {};
             findingKeys.forEach(key => { const el = document.getElementById(`edit-finding-${key}`); if (el) newFindings[key] = el.value; });
             specimens[editingSpecimenIndex].findings = newFindings;
-            if (newFindings.granulomi_epitelioidi === 'presente') {
-                const hasActiveMucosal = newFindings.neutrofili_epitelio === 'moderata' || newFindings.neutrofili_epitelio === 'marcata' || newFindings.ascessi_criptici === 'presente' || newFindings.ulcerazione === 'presente';
-                specimens[editingSpecimenIndex].mucinGranulomaLikely = hasActiveMucosal;
-            } else { specimens[editingSpecimenIndex].mucinGranulomaLikely = false; }
+            const mucinCb = document.getElementById('edit-mucin-granuloma-checkbox');
+            specimens[editingSpecimenIndex].mucinGranulomaLikely = mucinCb ? mucinCb.checked : false;
             editingSpecimenIndex = null;
             diagnosiVeloce.autoGenerated = false;
             saveData(); render();
@@ -1970,6 +1983,7 @@
         window.unlockForEdit = unlockForEdit;
         window.confirmReset = confirmReset;
         window.toggleMucinCheckbox = toggleMucinCheckbox;
+        window.toggleEditMucinCheckbox = toggleEditMucinCheckbox;
         window.inputModalCancel = inputModalCancel;
         window.inputModalConfirm = inputModalConfirm;
         window.inputModalBackdropClick = inputModalBackdropClick;
@@ -1995,11 +2009,11 @@
     </script>
 
     <div class="max-w-6xl mx-auto mt-8 text-xs text-gray-600 text-center p-4 bg-gray-100 rounded">
-        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.1.3</p>
+        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.1.4</p>
         <p class="mb-1">
-            <strong>Fix:</strong> MDT flag per diagnosi veloce · reset altreColiti completo · facPresente in auto-specimens · dead code rimosso
+            <strong>Fix:</strong> erosioni_ulcerazioni rimossa da edit colon · mucinGranulomaLikely manuale in modifica · label Nancy contestuale
         </p>
-        <p class="text-gray-500 mt-2">Febbraio 2026 | "Il vetrino non mente, il reagente sì."</p>
+        <p class="text-gray-500 mt-2">Maggio 2026 | "Il vetrino non mente, il reagente sì."</p>
     </div>
 </body>
 </html>

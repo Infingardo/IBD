@@ -1,4 +1,4 @@
-# IBD Diagnostic Tool v3.1.3
+# IBD Diagnostic Tool v3.1.4
 
 **Strumento di supporto decisionale per la diagnosi istologica delle malattie infiammatorie croniche intestinali (IBD)**
 
@@ -139,10 +139,19 @@ NON VALIDATO CLINICAMENTE
 
 ## 📊 Changelog
 
-### v3.1.3 (Febbraio 2026) — *Localizzazione italiana*
+### v3.1.4 (Maggio 2026) — *Bug fix form di modifica*
+- Fix: `erosioni_ulcerazioni` rimossa dai finding colonici in `EditSpecimenForm` e `updateSpecimen()` (campo ileale, non doveva apparire nei campioni colonici)
+- Fix: `mucinGranulomaLikely` ora gestito manualmente tramite checkbox nel form di modifica (prima veniva auto-inferito perdendo l'impostazione manuale del wizard)
+- Fix: label "→ chiede Nancy" nei bottoni di diagnosi veloce ora contestuale (mostra "chiede Nancy" solo se IBD nota = RCU, altrimenti "chiede grado attività")
+
+### v3.1.3 (Febbraio 2026) — *Localizzazione italiana + fix tecnici*
 - Terminologia italiana corretta: "granuloma mucinoso", "overespressione", "perdita completa/Null", "reperti"
 - `N/A` → `—` nella colonna displasia del referto
 - Ileo senza attività → "Nella norma" (non "Quiescente": l'ileo non è in remissione, è semplicemente non coinvolto)
+- Fix: MDT flag ora abilitato anche per casi da diagnosi veloce (rimossa guardia `simulation` che lo sopprimeva)
+- Fix: reset `altreColiti` completo in `generateSpecimensFromDiagnosi` (inclusi `banda_collagene_um` e `iel_count`)
+- Fix: `facPresente: false` esplicito nei campioni auto-generati
+- Fix: rimossa dead computation `calculateNancyPerSpecimen()` in `SpecimenList`
 
 ### v3.1.2 (Febbraio 2026) — *Fix WYSIWYG referto normale*
 - Allineamento tra view e testo copiato per mucosa normale: bullet points e ordine sedi ora identici in entrambi
@@ -249,7 +258,6 @@ index.html (standalone)
 | `PREREQUISITES.md` | Requisiti per utenti, test autovalutazione, linee guida per responsabili | v3.0.2 |
 | `MANIFESTO_USO.md` | Piano introduzione tool, prevenzione automation bias, KPI | v3.0.2 |
 | `CASI_DIDATTICI.md` | 5 casi dove il tool sbaglia (o ha ragione a essere indeciso) | v3.0.2 |
-| `RELEASE_NOTES_v3.0.3.md` | Note tecniche dettagliate workflow multi-sede | v3.0.3 |
 
 > **Nota**: i file di documentazione secondari riportano versioni precedenti nell'header. Il contenuto è ancora valido; gli screenshot di output si riferiscono a versioni precedenti.
 
