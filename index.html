@@ -1756,8 +1756,11 @@
                     }
                 } else {
                     t += `${report.diagnosiVeloce.testo}\n`;
-                    const sediAttive = specimens.filter(s => isSpecimenActive(s)).map(s => SITE_LABELS[s.site] || s.site);
-                    if (sediAttive.length > 0) t += `Attività infiammatoria acuta in: ${sediAttive.join(', ')}.\n`;
+                    // Per colite infettiva il grading per sede è già esplicito sotto — riga ridondante rimossa
+                    if (report.diagnosiVeloce.selected !== 'COLITE_INFETTIVA') {
+                        const sediAttive = specimens.filter(s => isSpecimenActive(s)).map(s => SITE_LABELS[s.site] || s.site);
+                        if (sediAttive.length > 0) t += `Attività infiammatoria acuta in: ${sediAttive.join(', ')}.\n`;
+                    }
                 }
             } else {
                 t += `${report.interpretation.headline}\n`;
