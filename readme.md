@@ -1,4 +1,4 @@
-# IBD Diagnostic Tool v3.1.4
+# IBD Diagnostic Tool v3.1.5
 
 **Strumento di supporto decisionale per la diagnosi istologica delle malattie infiammatorie croniche intestinali (IBD)**
 
@@ -138,6 +138,11 @@ NON VALIDATO CLINICAMENTE
 ---
 
 ## 📊 Changelog
+
+### v3.1.5 (Maggio 2026) — *Scoring live + UX*
+- Pannello "Orientamento in tempo reale" nella tab Campioni: mostra Crohn/RCU/IBDU con etichette qualitative, headline interpretativo, warning topografico e nota granulomi — aggiornato ad ogni modifica, senza bloccare il caso
+- Pannello collassabile (▲/▼) per non occupare spazio quando non serve
+- Sostituiti tutti gli `alert()` bloccanti con toast non bloccanti (verde = successo, arancio = warning) che scompaiono automaticamente dopo 2.5 secondi
 
 ### v3.1.4 (Maggio 2026) — *Bug fix form di modifica*
 - Fix: `erosioni_ulcerazioni` rimossa dai finding colonici in `EditSpecimenForm` e `updateSpecimen()` (campo ileale, non doveva apparire nei campioni colonici)
