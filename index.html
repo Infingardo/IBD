@@ -1863,11 +1863,11 @@
                     }
                 } else if (report.diagnosiVeloce.selected === 'COLITE_COLLAGENA') {
                     const val = altreColiti.banda_collagene_um;
-                    const label = val ? `${val}μm` : '≥10μm';
+                    const label = (val !== null && val !== undefined) ? `${val}μm` : '≥10μm';
                     t += `Colite microscopica, tipo collagenosica. Banda collagene subepiteliale ispessita (${label}). Architettura ghiandolare conservata.\n`;
                 } else if (report.diagnosiVeloce.selected === 'COLITE_LINFOCITICA') {
                     const val = altreColiti.iel_count;
-                    const label = val ? `${val}/100 cellule epiteliali` : '≥20/100 cellule epiteliali';
+                    const label = (val !== null && val !== undefined) ? `${val}/100 cellule epiteliali` : '≥20/100 cellule epiteliali';
                     t += `Colite microscopica, tipo linfocitica. Linfociti intraepiteliali aumentati (${label}). Architettura ghiandolare conservata.\n`;
                 } else {
                     t += `${report.diagnosiVeloce.testo}\n`;
