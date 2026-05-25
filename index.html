@@ -1861,13 +1861,18 @@
                     } else {
                         t += `Colite cronica attiva di grado ${gradeLabel[maxGrade]}, pattern morfologico compatibile con eziologia infettiva.\n`;
                     }
+                } else if (report.diagnosiVeloce.selected === 'COLITE_COLLAGENA') {
+                    const val = altreColiti.banda_collagene_um;
+                    const label = val ? `${val}μm` : '≥10μm';
+                    t += `Colite microscopica, tipo collagenosica. Banda collagene subepiteliale ispessita (${label}). Architettura ghiandolare conservata.\n`;
+                } else if (report.diagnosiVeloce.selected === 'COLITE_LINFOCITICA') {
+                    const val = altreColiti.iel_count;
+                    const label = val ? `${val}/100 cellule epiteliali` : '≥20/100 cellule epiteliali';
+                    t += `Colite microscopica, tipo linfocitica. Linfociti intraepiteliali aumentati (${label}). Architettura ghiandolare conservata.\n`;
                 } else {
                     t += `${report.diagnosiVeloce.testo}\n`;
-                    // Per colite infettiva il grading per sede è già esplicito sotto — riga ridondante rimossa
-                    if (report.diagnosiVeloce.selected !== 'COLITE_INFETTIVA') {
-                        const sediAttive = specimens.filter(s => isSpecimenActive(s)).map(s => SITE_LABELS[s.site] || s.site);
-                        if (sediAttive.length > 0) t += `Attività infiammatoria acuta in: ${sediAttive.join(', ')}.\n`;
-                    }
+                    const sediAttive = specimens.filter(s => isSpecimenActive(s)).map(s => SITE_LABELS[s.site] || s.site);
+                    if (sediAttive.length > 0) t += `Attività infiammatoria acuta in: ${sediAttive.join(', ')}.\n`;
                 }
             } else {
                 t += `${report.interpretation.headline}\n`;
