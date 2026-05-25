@@ -1891,6 +1891,11 @@
             }
 
             // ── DETTAGLIO PER SEDE ────────────────────────────────────────────
+            if (report.diagnosiVeloce.selected === 'COLITE_FAC' && !specimens.some(s => s.facPresente)) {
+                const sediLine = formatSediCampionate(specimens);
+                if (sediLine) t += `\n${sediLine}`;
+                return t;
+            }
             t += `\nDettaglio per sede:\n`;
             const isColiteInfettiva = report.diagnosiVeloce.selected === 'COLITE_INFETTIVA';
             specimens.forEach(s => {
