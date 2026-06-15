@@ -1919,8 +1919,6 @@
                 t += `\n`;
             });
 
-            const sediLine = formatSediCampionate(specimens);
-            if (sediLine) t += `\n${sediLine}`;
             // Per COLITE_FAC le sedi sono già nell'intestazione — la nota generica sarebbe ridondante
             if (report.diagnosiVeloce.selected !== 'COLITE_FAC') {
                 const facNote = formatFacNote(specimens);
