@@ -1,4 +1,4 @@
-# IBD Diagnostic Tool v3.1.5
+# IBD Diagnostic Tool v3.1.6
 
 **Strumento di supporto decisionale per la diagnosi istologica delle malattie infiammatorie croniche intestinali (IBD)**
 
@@ -138,6 +138,13 @@ NON VALIDATO CLINICAMENTE
 ---
 
 ## 📊 Changelog
+
+### v3.1.6 (Luglio 2026) — *Alert clinici a schermo + validazione input*
+- **Pannello Alert Clinici** (`ClinicalAlertsPanel`): porta finalmente **a schermo** (mai nel referto stampato — `no-print`) i segnali di sicurezza che prima venivano calcolati in `generateReport()` e mai renderizzati: flag MDT, alert diagnostici (high/caution), note di pattern contraddittorio e granulomi epitelioidi "sospetti" per sede
+- Validazione input `banda_collagene_um` / `iel_count` (range 0–100, arrotondamento, toast di warning su valore non valido)
+- Badge 🔶 FAC visibile nella lista campioni
+- Version check al caricamento di un caso salvato (warning in console se salvato con versione diversa dall'app)
+- Pulizia: rimosso dead code residuo (`currentSite`, definizione orfana `calculateNancyPerSpecimen`, `topoPattern` non usato nel blocco RCU)
 
 ### v3.1.5 (Maggio 2026) — *Scoring live + UX*
 - Pannello "Orientamento in tempo reale" nella tab Campioni: mostra Crohn/RCU/IBDU con etichette qualitative, headline interpretativo, warning topografico e nota granulomi — aggiornato ad ogni modifica, senza bloccare il caso
