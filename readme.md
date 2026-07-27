@@ -1,4 +1,4 @@
-# IBD Diagnostic Tool v3.1.6
+# IBD Diagnostic Tool v3.1.7
 
 **Strumento di supporto decisionale per la diagnosi istologica delle malattie infiammatorie croniche intestinali (IBD)**
 
@@ -36,7 +36,7 @@ Questo tool **non fa diagnosi**. Formalizza il ragionamento del patologo esperto
 ### Nancy Histological Index
 - Abilitato **esclusivamente** per RCU nota in follow-up (checkbox "IBD nota" + diagnosi "RCU")
 - Disabilitato automaticamente in prima diagnosi, Crohn, IBDU, e per campioni ileali
-- Riferimenti: Marchal-Bressenot et al., *Gut* 2017; Travis et al., *Gut* 2019
+- Riferimenti: Marchal-Bressenot et al., *Gut* 2017
 
 ### Pattern Topografico
 - Distribuzione continua vs discontinua
@@ -138,6 +138,9 @@ NON VALIDATO CLINICAMENTE
 ---
 
 ## 📊 Changelog
+
+### v3.1.7 (Luglio 2026) — *Fix citazione Nancy Index*
+- Rimossa citazione errata "Travis et al., Gut 2019" dal testo del referto (`generateReport()`) e dal readme: non esiste un lavoro di Travis con quel riferimento specifico al Nancy Index; la fonte associabile a quegli autori/anno (Lamb CA et al., BSG consensus guidelines, Gut 2019;68:s1–s106) tratta la gestione dell'IBD in generale, non la validazione dell'indice. Resta come unica referenza la fonte primaria: Marchal-Bressenot et al., Gut 2017
 
 ### v3.1.6 (Luglio 2026) — *Alert clinici a schermo + validazione input*
 - **Pannello Alert Clinici** (`ClinicalAlertsPanel`): porta finalmente **a schermo** (mai nel referto stampato — `no-print`) i segnali di sicurezza che prima venivano calcolati in `generateReport()` e mai renderizzati: flag MDT, alert diagnostici (high/caution), note di pattern contraddittorio e granulomi epitelioidi "sospetti" per sede

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v3.1.6</title>
+    <title>IBD Diagnostic Tool v3.1.7</title>
     <script src="./vendor/tailwind.js"></script>
     <style>
         body, body *, h1, h2, h3, h4, h5, h6, p, div, span, td, th, li, button, input, select {
@@ -181,7 +181,7 @@
                 </div>
                 <div class="bg-gray-100 p-3 rounded">
                     <p class="text-xs text-gray-700 italic">
-                        v3.1.6: Pannello alert clinici a schermo (MDT, contraddittori, granulomi sospetti) · validazione input
+                        v3.1.7: Corretta citazione errata "Travis et al., Gut 2019" nel Nancy Index (referto e disclaimer)
                     </p>
                 </div>
             </div>
@@ -227,13 +227,13 @@
         <!-- Header -->
         <div class="mb-4 border-b pb-4">
             <h1 class="text-3xl font-bold text-blue-900 mb-2">
-                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.1.6</span>
+                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.1.7</span>
             </h1>
             <p class="text-sm text-gray-600">
                 Supporto diagnosi differenziale Malattie Infiammatorie Croniche Intestinali
             </p>
             <p class="text-xs text-gray-500 mt-1">
-                v3.1.6: Alert clinici visibili nel referto (non stampati) · validazione banda collagene/IEL
+                v3.1.7: Corretta citazione errata Nancy Index · v3.1.6: alert clinici visibili nel referto · validazione banda collagene/IEL
             </p>
         </div>
 
@@ -274,7 +274,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '3.1.6';
+        const APP_VERSION = '3.1.7';
         const STORAGE_KEY = 'ibdAppDataV310';
         const DISCLAIMER_KEY = 'ibdDisclaimerAccepted';
 
@@ -1897,7 +1897,7 @@
                 t += `Quadro istologico di IBD compatibile, alla luce della storia clinica, con ${dLabel}.\n`;
                 if (report.nancy.applicable) {
                     t += `\nNancy Histological Index = ${report.nancy.score}/4 — ${report.nancy.interpretation.label}`;
-                    t += ` (Marchal-Bressenot et al., Gut 2017; Travis et al., Gut 2019)\n`;
+                    t += ` (Marchal-Bressenot et al., Gut 2017)\n`;
                 }
             } else if (report.diagnosiVeloce.selected === 'COLITE_FAC') {
                 const facSediNomi = specimens.filter(s => s.facPresente).map(s => SITE_LABELS[s.site] || s.site);
@@ -2182,7 +2182,7 @@
     </script>
 
     <div class="max-w-6xl mx-auto mt-8 text-xs text-gray-600 text-center p-4 bg-gray-100 rounded">
-        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.1.6</p>
+        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.1.7</p>
         <p class="mb-1">
             <strong>Novità:</strong> scoring live tab Campioni · toast non bloccanti al posto degli alert
         </p>
