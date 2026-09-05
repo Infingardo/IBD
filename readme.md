@@ -1,4 +1,4 @@
-# IBD Diagnostic Tool v3.1.7
+# IBD Diagnostic Tool v3.2.0
 
 **Strumento di supporto decisionale per la diagnosi istologica delle malattie infiammatorie croniche intestinali (IBD)**
 
@@ -138,6 +138,20 @@ NON VALIDATO CLINICAMENTE
 ---
 
 ## 📊 Changelog
+
+### v3.2.0 (Settembre 2026) — *Forza dell'evidenza, Nancy, motore estratto e testato*
+
+Il motore diagnostico è stato estratto in **`engine.js`** (nessuna dipendenza dal DOM: riceve lo stato esplicito) e coperto da una suite eseguibile con `npm test`. La UI non cambia: `index.html` conserva wrapper con gli stessi nomi.
+
+- **[FIX CRITICO] La confidenza non nasce più dalla percentuale normalizzata.** I punteggi venivano divisi per il loro totale e le soglie interpretative applicate a quel rapporto — che non misura quanta evidenza c'è, ma solo da che parte pende. Conseguenze misurate: una singola metaplasia di Paneth usciva *"fortemente suggestiva"* per RCU (15 punti grezzi → 100%), mentre una RCU conclamata su quattro sedi si fermava a *"compatibile"* (460 grezzi → 66%, perché gli stessi reperti danno punti anche al Crohn). Ora il livello nasce da **sufficienza dell'evidenza** (punteggi grezzi, numero di reperti, numero di sedi) **× separazione** (distacco relativo Crohn/RCU); sotto una soglia minima non viene nominata alcuna entità. Le soglie sono convenzioni locali dichiarate come tali nel codice.
+- **[FIX CRITICO] Nancy Index: gli ascessi criptici contano da soli.** Erano subordinati alla presenza di neutrofili intraepiteliali, per cui un retto con ascessi criptici e campo neutrofili non compilato usciva come *"remissione completa"* (grado 0). Ora danno grado 3.
+- **[FIX] Nancy Index: l'item "infiltrato acuto" considera anche i neutrofili della lamina propria**, come da Marchal-Bressenot. Il campo, che esisteva solo per l'ileo, è stato aggiunto alla scheda colon. L'item "infiltrato cronico" resta approssimato da plasmacellulosi basale e distorsione architetturale: ora il referto lo dichiara.
+- **[FIX] Le "altre coliti" non scartano più il ragionamento IBD.** Il ramo colite microscopica/ischemica/da FANS usciva con `return` immediato: un Crohn ileale conclamato (230 punti grezzi) spariva perché era spuntata la banda collagene. Ora l'interpretazione IBD viaggia come **reperto concomitante**, nel pannello e nel testo copiato.
+- **[FIX] L'immunoistochimica non convive più con "mucosa nella norma".** Un CMV positivo con morfologia muta usciva sotto il titolo *"Mucosa ileo-colica nella norma"*. Ora produce un esito dedicato. Stessa cosa per CD68 e p53 aberrante.
+- **[FIX] Nessun campione inserito ≠ mucosa normale.** Con zero campioni `specimens.every()` è vero e il tool dichiarava la mucosa nella norma.
+- **[FIX] IBDU nasce dalla contraddizione morfologica**, come il readme già dichiarava, e non dalla vicinanza fra due percentuali.
+- **[FIX] Unificate le due definizioni divergenti di "tutto normale"** e le quattro copie letterali dell'elenco delle voci per sede (aggiungere una voce a una sola copia la rendeva compilabile e mai salvata).
+- **[FIX] Topografia**: la continuità non è più affermata con una sola sede coinvolta; la ricerca delle skip lesions non si ferma più al primo gap non campionato.
 
 ### v3.1.7 (Luglio 2026) — *Fix citazione Nancy Index*
 - Rimossa citazione errata "Travis et al., Gut 2019" dal testo del referto (`generateReport()`) e dal readme: non esiste un lavoro di Travis con quel riferimento specifico al Nancy Index; la fonte associabile a quegli autori/anno (Lamb CA et al., BSG consensus guidelines, Gut 2019;68:s1–s106) tratta la gestione dell'IBD in generale, non la validazione dell'indice. Resta come unica referenza la fonte primaria: Marchal-Bressenot et al., Gut 2017

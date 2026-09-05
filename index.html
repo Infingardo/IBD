@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v3.1.7</title>
+    <title>IBD Diagnostic Tool v3.2.0</title>
     <script src="./vendor/tailwind.js"></script>
+    <script src="./engine.js?v=3.2.0"></script>
     <style>
         body, body *, h1, h2, h3, h4, h5, h6, p, div, span, td, th, li, button, input, select {
             font-family: Arial, sans-serif !important;
@@ -227,13 +228,13 @@
         <!-- Header -->
         <div class="mb-4 border-b pb-4">
             <h1 class="text-3xl font-bold text-blue-900 mb-2">
-                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.1.7</span>
+                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.2.0</span>
             </h1>
             <p class="text-sm text-gray-600">
                 Supporto diagnosi differenziale Malattie Infiammatorie Croniche Intestinali
             </p>
             <p class="text-xs text-gray-500 mt-1">
-                v3.1.7: Corretta citazione errata Nancy Index · v3.1.6: alert clinici visibili nel referto · validazione banda collagene/IEL
+                v3.2.0: evidenza separata dall’orientamento · Nancy: ascessi criptici e neutrofili LP · motore estratto e testato · v3.1.7: citazione Nancy Index
             </p>
         </div>
 
@@ -274,7 +275,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '3.1.7';
+        const APP_VERSION = '3.2.0';
         const STORAGE_KEY = 'ibdAppDataV310';
         const DISCLAIMER_KEY = 'ibdDisclaimerAccepted';
 
@@ -402,78 +403,25 @@
         };
 
         // ==================== TOPOGRAPHIC ANALYSIS ====================
-        const hasInflammatoryFindings = (specimen) => {
-            const f = specimen.findings;
-            if (specimen.siteType === 'ileum') {
-                return (
-                    f.granulomi_epitelioidi === 'presente' || f.granulomi_epitelioidi === 'sospetti' ||
-                    f.neutrofili_lamina_propria !== 'assente' || f.erosioni_ulcerazioni === 'presente' ||
-                    f.iperplasia_linfoide === 'presente' || f.edema_lamina_propria === 'presente' ||
-                    f.plasmacellule_aumentate === 'presente'
-                );
-            } else {
-                return (
-                    f.granulomi_epitelioidi === 'presente' || f.granulomi_epitelioidi === 'sospetti' ||
-                    f.neutrofili_epitelio !== 'assente' || f.ascessi_criptici === 'presente' ||
-                    f.plasmacellule_basale === 'presente' || f.distorsione_architettura === 'presente' ||
-                    f.metaplasia_paneth === 'presente' || f.ulcerazione === 'presente'
-                );
-            }
-        };
-
-        const analyzeTopographicPattern = () => {
-            const sites = specimens.map(s => s.site);
-            const sitesWithFindings = specimens.filter(hasInflammatoryFindings).map(s => s.site);
-            let pattern = {
-                rectumSampled: sites.includes('retto'),
-                rectumInvolved: sitesWithFindings.includes('retto'),
-                ileumSampled: sites.includes('ileo'),
-                ileumInvolved: sitesWithFindings.includes('ileo'),
-                skipLesions: false,
-                skipLesionsIndeterminate: false,
-                continuity: 'sconosciuta',
-                warning: null
-            };
-            const colonOrder = ['cieco','ascendente','trasverso','discendente','sigma','retto'];
-            const findingsIndices = sitesWithFindings
-                .filter(s => colonOrder.includes(s))
-                .map(s => colonOrder.indexOf(s))
-                .sort((a,b) => a-b);
-            const hasSpecialSites = specimens.some(s => SPECIAL_SITES.includes(s.site));
-            if (findingsIndices.length >= 2) {
-                for (let i = 1; i < findingsIndices.length; i++) {
-                    const gap = findingsIndices[i] - findingsIndices[i-1];
-                    if (gap > 1) {
-                        let missingSamples = false;
-                        for (let j = findingsIndices[i-1]+1; j < findingsIndices[i]; j++) {
-                            if (!sites.includes(colonOrder[j])) { missingSamples = true; break; }
-                        }
-                        if (missingSamples) { pattern.skipLesionsIndeterminate = true; }
-                        else { pattern.skipLesions = true; }
-                        break;
-                    }
-                }
-            }
-            pattern.continuity = pattern.skipLesions ? 'discontinua' : (pattern.skipLesionsIndeterminate ? 'indeterminabile' : 'continua');
-            if (hasSpecialSites) {
-                pattern.warning = "ℹ️ Sedi speciali (pouch/anastomosi): analisi topografica standard non applicabile.";
-            } else if (pattern.rectumSampled && pattern.rectumInvolved && !pattern.skipLesions && !pattern.ileumInvolved) {
-                pattern.warning = "⚠️ Distribuzione tipo RCU: retto coinvolto, pattern continuo, ileo non coinvolto";
-            } else if (pattern.skipLesionsIndeterminate) {
-                pattern.warning = "⚠️ Campionamento incompleto: continuità/discontinuità NON valutabile. Completare mapping endoscopico.";
-            } else if (pattern.skipLesions || (pattern.ileumInvolved && !pattern.rectumInvolved)) {
-                pattern.warning = "⚠️ Distribuzione tipo Crohn: pattern discontinuo e/o ileo coinvolto con retto risparmiato";
-            } else if (!pattern.rectumSampled) {
-                pattern.warning = "ℹ️ Retto non campionato: valutazione pattern topografico limitata";
-            } else if (pattern.rectumSampled && !pattern.rectumInvolved && sitesWithFindings.length > 0) {
-                if (ibdNota.therapyOngoing) {
-                    pattern.warning = "ℹ️ Retto risparmiato in paziente in terapia: non esclude RCU (retto può normalizzarsi)";
-                } else {
-                    pattern.warning = "⚠️ Retto risparmiato: atipico per RCU classica";
-                }
-            }
-            return pattern;
-        };
+        // ==================== MOTORE (engine.js) ====================
+        // v3.2.0 — la logica vive in engine.js e riceve lo stato esplicito. Qui restano
+        // wrapper con i nomi originali, cosi' nessun punto della UI ha dovuto cambiare.
+        const currentState = () => ({ specimens, ihcData, ibdNota, altreColiti, diagnosiVeloce });
+        const E = IBDEngine;
+        const fval = E.fval;
+        const hasInflammatoryFindings = E.hasInflammatoryFindings;
+        const isSpecimenActive = E.isSpecimenActive;
+        const getScoreLabel = E.getScoreLabel;
+        const analyzeTopographicPattern = () => E.analyzeTopographicPattern(currentState());
+        const shouldShowNancy = () => E.shouldShowNancy(currentState());
+        const calculateNancyIndex = () => E.calculateNancyIndex(currentState());
+        const calculateScoring = () => E.calculateScoring(currentState());
+        const interpretScoringGraduated = (scoring) => E.interpretScoringGraduated(currentState(), scoring);
+        const generateDysplasiaReport = () => E.generateDysplasiaReport(currentState());
+        const detectContradictoryPatterns = (scoring) => E.detectContradictoryPatterns(currentState(), scoring || calculateScoring());
+        const validateClinicalLogic = () => E.validateClinicalLogic(currentState());
+        const shouldFlagMDT = E.shouldFlagMDT;
+        const isMorphologicallyNormal = () => E.isMorphologicallyNormal(currentState());
 
         // ==================== IBD NOTA HANDLERS ====================
         const toggleIbdNota = (enabled) => {
@@ -490,370 +438,10 @@
             saveData(); render();
         };
 
-        // ==================== NANCY - SOLO RCU FOLLOW-UP ====================
-        const shouldShowNancy = () => {
-            return ibdNota.enabled === true && ibdNota.diagnosiAttuale === 'RCU';
-        };
-
-        const calculateNancyIndex = () => {
-            if (!shouldShowNancy()) {
-                return { score: null, interpretation: null, applicable: false, warning: null };
-            }
-            let nancyScore = 0;
-            let hasUlceration = false;
-            let hasCryptAbscesses = false;
-            let neutrophilSeverity = 'assente';
-            const neutRank = { assente: 0, lieve: 1, moderata: 2, marcata: 3 };
-            const colonSpecimens = specimens.filter(s => s.siteType !== 'ileum');
-            colonSpecimens.forEach(specimen => {
-                if (specimen.findings.ulcerazione === 'presente') hasUlceration = true;
-                if (specimen.findings.ascessi_criptici === 'presente') hasCryptAbscesses = true;
-                const neutLevel = specimen.findings.neutrofili_epitelio;
-                if (neutRank[neutLevel] > neutRank[neutrophilSeverity]) neutrophilSeverity = neutLevel;
-            });
-            const cryptsContribute = hasCryptAbscesses && neutrophilSeverity !== 'assente';
-            if (hasUlceration) nancyScore = 4;
-            else if (neutrophilSeverity === 'marcata' || neutrophilSeverity === 'moderata' || cryptsContribute) nancyScore = 3;
-            else if (neutrophilSeverity === 'lieve') nancyScore = 2;
-            else {
-                const hasChronicChanges = colonSpecimens.some(s =>
-                    s.findings.distorsione_architettura === 'presente' || s.findings.plasmacellule_basale === 'presente'
-                );
-                nancyScore = hasChronicChanges ? 1 : 0;
-            }
-            const interpretations = {
-                0: { label: 'Remissione completa', description: 'Assenza di attività e alterazioni croniche' },
-                1: { label: 'Remissione con alterazioni croniche', description: 'Alterazioni architetturali senza attività acuta' },
-                2: { label: 'Attività lieve', description: 'Infiltrato neutrofilo lieve senza ulcerazione' },
-                3: { label: 'Attività moderata', description: 'Infiltrato neutrofilo moderato-severo o ascessi criptici' },
-                4: { label: 'Attività severa con ulcerazione', description: 'Ulcerazione mucosa presente' }
-            };
-            return {
-                score: nancyScore,
-                interpretation: interpretations[nancyScore],
-                applicable: true,
-                warning: null,
-                details: { hasUlceration, hasCryptAbscesses, neutrophilSeverity }
-            };
-        };
-
-        const isSpecimenActive = (specimen) => {
-            const f = specimen.findings;
-            if (specimen.siteType === 'ileum') {
-                return f.neutrofili_lamina_propria !== 'assente' || f.erosioni_ulcerazioni === 'presente';
-            } else {
-                return f.neutrofili_epitelio !== 'assente' || f.ascessi_criptici === 'presente' || f.ulcerazione === 'presente';
-            }
-        };
-
-        // ==================== SCORING ====================
-        const calculateIBDUScore = (rawScores, topoPattern) => {
-            let ibduScore = 0;
-            const hasGranulomas = specimens.some(s => s.findings.granulomi_epitelioidi === 'presente' && !s.mucinGranulomaLikely);
-            const hasUCPattern = specimens.some(s => s.findings.plasmacellule_basale === 'presente' || s.findings.distorsione_architettura === 'presente');
-            if (hasGranulomas && hasUCPattern) ibduScore += 60;
-            if (topoPattern.skipLesions && hasUCPattern) ibduScore += 50;
-            if (topoPattern.rectumSampled && !topoPattern.rectumInvolved && hasUCPattern) ibduScore += 40;
-            if (Math.abs(rawScores.crohn - rawScores.uc) < 20 && rawScores.crohn > 30) ibduScore += 70;
-            return ibduScore;
-        };
-
-        const calculateScoring = () => {
-            let scores = { crohn: 0, uc: 0, ibdu: 0 };
-            let granulomaScore = 0;
-            specimens.forEach(specimen => {
-                const f = specimen.findings;
-                const siteType = specimen.siteType || 'colon';
-                if (siteType === 'ileum') {
-                    if (f.granulomi_epitelioidi === 'presente') {
-                        const pts = specimen.mucinGranulomaLikely ? 20 : 150;
-                        scores.crohn += pts; granulomaScore += pts;
-                    } else if (f.granulomi_epitelioidi === 'sospetti') { scores.crohn += 25; granulomaScore += 25; }
-                    if (f.erosioni_ulcerazioni === 'presente') scores.crohn += 50;
-                    if (f.iperplasia_linfoide === 'presente') scores.crohn += 40;
-                    if (f.atrofia_villi === 'marcata') scores.crohn += 30;
-                    else if (f.atrofia_villi === 'moderata') scores.crohn += 15;
-                    else if (f.atrofia_villi === 'lieve') scores.crohn += 5;
-                    if (f.neutrofili_lamina_propria === 'marcata') { scores.crohn += 20; scores.uc += 10; }
-                    else if (f.neutrofili_lamina_propria === 'moderata') { scores.crohn += 10; scores.uc += 5; }
-                    else if (f.neutrofili_lamina_propria === 'lieve') scores.crohn += 5;
-                    if (f.edema_lamina_propria === 'presente') scores.crohn += 15;
-                    if (f.plasmacellule_aumentate === 'presente') scores.crohn += 15;
-                    if (f.fibrosi_sottomucosa === 'marcata') scores.crohn += 25;
-                    else if (f.fibrosi_sottomucosa === 'moderata') scores.crohn += 15;
-                    else if (f.fibrosi_sottomucosa === 'lieve') scores.crohn += 5;
-                } else {
-                    if (f.granulomi_epitelioidi === 'presente') {
-                        const pts = specimen.mucinGranulomaLikely ? 15 : 100;
-                        scores.crohn += pts; granulomaScore += pts;
-                    } else if (f.granulomi_epitelioidi === 'sospetti') { scores.crohn += 25; }
-                    if (f.neutrofili_epitelio === 'marcata') { scores.uc += 40; scores.crohn += 20; }
-                    else if (f.neutrofili_epitelio === 'moderata') { scores.uc += 25; scores.crohn += 15; }
-                    else if (f.neutrofili_epitelio === 'lieve') { scores.uc += 15; scores.crohn += 10; }
-                    if (f.ascessi_criptici === 'presente') { scores.uc += 30; scores.crohn += 15; }
-                    if (f.plasmacellule_basale === 'presente') { scores.uc += 25; scores.crohn += 10; }
-                    if (f.distorsione_architettura === 'presente') { scores.uc += 20; scores.crohn += 15; }
-                    if (f.metaplasia_paneth === 'presente') scores.uc += 15;
-                    if (f.ulcerazione === 'presente') { scores.crohn += 15; scores.uc += 10; }
-                    if (f.fibrosi_sottomucosa === 'marcata') { scores.crohn += 25; scores.uc += 10; }
-                    else if (f.fibrosi_sottomucosa === 'moderata') { scores.crohn += 15; scores.uc += 5; }
-                }
-            });
-            if (ihcData.cd68_pattern === 'aggregati_profondi') scores.crohn += 35;
-            else if (ihcData.cd68_pattern === 'diffuso_mucosa') { scores.uc += 20; scores.crohn += 10; }
-            const topoPattern = analyzeTopographicPattern();
-            const rawScores = { crohn: scores.crohn, uc: scores.uc };
-            scores.ibdu = calculateIBDUScore(rawScores, topoPattern);
-            const total = scores.crohn + scores.uc + scores.ibdu;
-            let normalizedScores = { crohn: 0, uc: 0, ibdu: 0 };
-            if (total > 0) {
-                normalizedScores.crohn = Math.round((scores.crohn / total) * 100);
-                normalizedScores.uc = Math.round((scores.uc / total) * 100);
-                normalizedScores.ibdu = Math.round((scores.ibdu / total) * 100);
-            }
-            const granulomasDriven = rawScores.crohn > 0 && (granulomaScore / rawScores.crohn) > 0.5;
-            return { scores: normalizedScores, rawScores, dysplasiaRisk: false, granulomaScore, granulomasDriven };
-        };
-
-        // ==================== ETICHETTE QUALITATIVE ====================
-        const getScoreLabel = (score) => {
-            if (score >= 80) return { text: 'Forte', cls: 'forte' };
-            if (score >= 60) return { text: 'Compatibile', cls: 'compatibile' };
-            if (score >= 40) return { text: 'Borderline', cls: 'borderline' };
-            return { text: 'Basso', cls: 'basso' };
-        };
-
-        // ==================== INTERPRETAZIONE ====================
-        const interpretScoringGraduated = (scores) => {
-            const { crohn, uc, ibdu } = scores;
-            const max = Math.max(crohn, uc, ibdu);
-            let result = { primary: null, level: null, headline: null, description: null, epistemicNote: null };
-
-            const hasAltreColitiFindings =
-                (altreColiti.banda_collagene !== 'assente') ||
-                (altreColiti.iel_aumentati !== 'assente') ||
-                altreColiti.apoptosi_cripte !== 'assente' ||
-                altreColiti.pattern_superficiale ||
-                altreColiti.atrofia_ischemica ||
-                altreColiti.membrane_ialine ||
-                altreColiti.emorragia_recente ||
-                altreColiti.ulcere_diaframma;
-
-            const isAllNormal = !hasAltreColitiFindings && specimens.every(s => {
-                const f = s.findings;
-                if (s.siteType === 'ileum') {
-                    return f.granulomi_epitelioidi === 'assente' && f.neutrofili_lamina_propria === 'assente' &&
-                           f.erosioni_ulcerazioni === 'assente' && f.iperplasia_linfoide === 'assente' &&
-                           f.edema_lamina_propria === 'assente' && f.atrofia_villi === 'assente' &&
-                           f.plasmacellule_aumentate === 'assente' && f.fibrosi_sottomucosa === 'assente';
-                } else {
-                    return f.granulomi_epitelioidi === 'assente' && f.neutrofili_epitelio === 'assente' &&
-                           f.ascessi_criptici === 'assente' && f.plasmacellule_basale === 'assente' &&
-                           f.distorsione_architettura === 'assente' && f.metaplasia_paneth === 'assente' &&
-                           f.ulcerazione === 'assente' && f.fibrosi_sottomucosa === 'assente' &&
-                           (!f.displasia || f.displasia === 'assente');
-                }
-            });
-
-            if (isAllNormal) {
-                return { primary: 'Normale', level: 'normale', headline: 'Mucosa ileo-colica nella norma',
-                    description: 'Non si osservano alterazioni istologiche significative nei campioni esaminati.', epistemicNote: null };
-            }
-
-            if (hasAltreColitiFindings) {
-                if (altreColiti.banda_collagene === 'ispessita' || altreColiti.banda_collagene === 'marcata') {
-                    const bandaText = altreColiti.banda_collagene_um
-                        ? `Banda collagene subepiteliale: ${altreColiti.banda_collagene_um}μm (v.n. <10μm)`
-                        : `Banda collagene subepiteliale ${altreColiti.banda_collagene === 'marcata' ? 'marcatamente ispessita (>20μm)' : 'ispessita (≥10μm)'}`;
-                    return { primary: 'Colite Collagenosica', level: altreColiti.banda_collagene === 'marcata' ? 'alta' : 'buona',
-                        headline: 'Colite microscopica, tipo collagenosica',
-                        description: `${bandaText}. Architettura ghiandolare conservata.`, epistemicNote: null };
-                }
-                if (altreColiti.iel_aumentati === 'aumentati' || altreColiti.iel_aumentati === 'marcati') {
-                    const ielText = altreColiti.iel_count
-                        ? `Linfociti intraepiteliali: ${altreColiti.iel_count}/100 cellule epiteliali (v.n. <20)`
-                        : `IEL ${altreColiti.iel_aumentati === 'marcati' ? 'marcatamente aumentati (>30/100)' : 'aumentati (≥20/100)'}`;
-                    return { primary: 'Colite Linfocitica', level: altreColiti.iel_aumentati === 'marcati' ? 'alta' : 'buona',
-                        headline: 'Colite microscopica, tipo linfocitica',
-                        description: `${ielText}. Architettura ghiandolare conservata.`, epistemicNote: null };
-                }
-                const ischemicFeatures = [altreColiti.atrofia_ischemica, altreColiti.membrane_ialine, altreColiti.emorragia_recente].filter(Boolean).length;
-                if (ischemicFeatures >= 2) {
-                    return { primary: 'Colite Ischemica', level: ischemicFeatures === 3 ? 'alta' : 'suggestivo',
-                        headline: 'Pattern compatibile con colite ischemica',
-                        description: `Presenti ${ischemicFeatures}/3 criteri ischemici. Correlare con sede e fattori di rischio cardiovascolare.`, epistemicNote: null };
-                }
-                if (altreColiti.ulcere_diaframma) {
-                    return { primary: 'Enteropatia da FANS', level: 'alta', headline: 'Enteropatia/Colite da FANS',
-                        description: 'Ulcere a diaframma presenti (patognomonico). Confermare anamnesi farmacologica.', epistemicNote: null };
-                }
-                if (altreColiti.apoptosi_cripte !== 'assente') {
-                    return { primary: 'Possibile Colite da FANS', level: 'suggestivo',
-                        headline: 'Pattern suggestivo per colite da FANS',
-                        description: `Apoptosi cripte ${altreColiti.apoptosi_cripte}. Considerare eziologia farmacologica.`, epistemicNote: null };
-                }
-                if (altreColiti.pattern_superficiale && altreColiti.architettura_conservata) {
-                    return { primary: 'Colite Infettiva', level: 'suggestivo',
-                        headline: 'Pattern compatibile con colite infettiva',
-                        description: 'Infiammazione superficiale con architettura conservata. Correlare con coprocoltura.', epistemicNote: null };
-                }
-            }
-
-            if (max === crohn && crohn >= 40) {
-                result.primary = 'Malattia di Crohn';
-                if (crohn >= 80) {
-                    result.level = 'alta'; result.headline = 'Malattia di Crohn (pattern istologico fortemente suggestivo)';
-                    result.description = 'Pattern morfologico e architetturale fortemente indicativo per malattia di Crohn.';
-                } else if (crohn >= 60) {
-                    result.level = 'probabile'; result.headline = 'Quadro compatibile con malattia di Crohn';
-                    result.description = 'Pattern morfologico compatibile con malattia di Crohn. Correlazione con dati clinici, endoscopici e imaging NECESSARIA.';
-                    result.epistemicNote = 'Criteri multipli ma non patognomonici. Conferma clinico-radiologica essenziale.';
-                } else {
-                    result.level = 'suggestivo'; result.headline = 'Pattern suggestivo ma non diagnostico per malattia di Crohn';
-                    result.description = 'Pattern con alcune caratteristiche compatibili con Crohn, INSUFFICIENTE per diagnosi definitiva.';
-                    result.epistemicNote = 'Istologia da sola NON consente diagnosi. Correlazione clinica, distribuzione endoscopica e imaging INDISPENSABILI.';
-                }
-            } else if (max === uc && uc >= 40) {
-                const activeSites = specimens.filter(s => s.siteType !== 'ileum' && (
-                    s.findings.neutrofili_epitelio !== 'assente' || s.findings.distorsione_architettura === 'presente' || s.findings.plasmacellule_basale === 'presente'
-                )).map(s => s.site);
-                const hasAcuteActivity = specimens.some(s => s.siteType !== 'ileum' && (
-                    s.findings.neutrofili_epitelio !== 'assente' || s.findings.ascessi_criptici === 'presente' || s.findings.ulcerazione === 'presente'
-                ));
-                const isRemission = diagnosiVeloce.selected === 'IBD_REMISSIONE' || !hasAcuteActivity;
-                const isProctitis = activeSites.length === 1 && activeSites.includes('retto');
-                const leftSites = ['retto','sigma','discendente'], rightSites = ['trasverso','ascendente','cieco'];
-                const isLeftSided = activeSites.every(s => leftSites.includes(s)) && activeSites.includes('retto') && !activeSites.some(s => rightSites.includes(s));
-                const ucLabel = isProctitis ? 'proctite ulcerosa' : (isLeftSided && !isProctitis) ? 'rettocolite ulcerosa sinistra' : 'rettocolite ulcerosa';
-                const ucLabelCap = ucLabel.charAt(0).toUpperCase() + ucLabel.slice(1);
-                const remissionSuffix = isRemission ? ' in fase di remissione istologica' : '';
-                result.primary = ucLabelCap;
-                if (uc >= 80) {
-                    result.level = 'alta'; result.headline = `${ucLabelCap}${remissionSuffix} (pattern istologico fortemente suggestivo)`;
-                    result.description = `Pattern morfologico e distributivo fortemente indicativo per ${ucLabel}${remissionSuffix}.`;
-                } else if (uc >= 60) {
-                    result.level = 'probabile'; result.headline = `Quadro compatibile con ${ucLabel}${remissionSuffix}`;
-                    result.description = `Pattern morfologico compatibile con ${ucLabel}${remissionSuffix}.${isRemission ? ' Persistono alterazioni architetturali croniche residue.' : ' Correlazione con distribuzione endoscopica NECESSARIA.'}`;
-                    result.epistemicNote = isRemission ? null : 'Conferma con pattern topografico endoscopico (continuo, retto coinvolto, ileo indenne) essenziale.';
-                } else {
-                    result.level = 'suggestivo'; result.headline = `Pattern suggestivo ma non diagnostico per ${ucLabel}`;
-                    result.description = `Features compatibili con ${ucLabel}, INSUFFICIENTE per diagnosi definitiva.`;
-                    result.epistemicNote = 'Verifica distribuzione continua, coinvolgimento rettale e risparmio ileale tramite endoscopia.';
-                }
-            } else if (max === ibdu || Math.abs(crohn - uc) < 15) {
-                result.primary = 'IBDU'; result.level = 'indeterminato'; result.headline = 'IBD non classificabile (IBDU)';
-                if (ibdu > 50) {
-                    result.description = 'Pattern contraddittorio con features sovrapposte Crohn/RCU. Classificazione istologica non possibile.';
-                    result.epistemicNote = 'IBDU con caratteristiche sovrapposte. Diagnosi definitiva richiede follow-up clinico-istologico prolungato.';
-                } else {
-                    result.description = 'Pattern aspecifico di IBD. Dati istologici insufficienti per classificazione Crohn vs RCU.';
-                    result.epistemicNote = 'Score equiparati. Rivalutazione con follow-up istologico + correlazione clinico-endoscopica-radiologica INDISPENSABILE.';
-                }
-            } else {
-                result.primary = 'Indeterminato'; result.level = 'insufficiente'; result.headline = 'Pattern istologico aspecifico';
-                result.description = 'Reperti morfologici insufficienti per orientamento diagnostico IBD.';
-                result.epistemicNote = 'Campionamento inadeguato o fase precoce di malattia. Necessaria rivalutazione con campionamento esteso.';
-            }
-            return result;
-        };
-
-        // ==================== DISPLASIA ====================
-        const generateDysplasiaReport = () => {
-            const colonSpecs = specimens.filter(s => s.siteType !== 'ileum');
-            const displasiaFindings = colonSpecs
-                .filter(s => s.findings.displasia && s.findings.displasia !== 'assente')
-                .map(s => ({ site: s.site, grade: s.findings.displasia, p53Support: ihcData.p53_pattern === 'overexpression' || ihcData.p53_pattern === 'null' }));
-            if (displasiaFindings.length === 0) return null;
-            const maxGrade = displasiaFindings.some(d => d.grade === 'HGD') ? 'HGD' :
-                             displasiaFindings.some(d => d.grade === 'LGD') ? 'LGD' : 'IND';
-            let recommendation = '';
-            if (maxGrade === 'HGD') recommendation = 'HGD: Colectomia da considerare. Discussione multidisciplinare URGENTE.';
-            else if (maxGrade === 'LGD') recommendation = 'LGD: Sorveglianza endoscopica stretta (3-6 mesi). Valutare resezione endoscopica se lesione visibile.';
-            else recommendation = 'IND: Rivalutazione con campionamento esteso. Considerare review con patologo esperto.';
-            return { present: true, maxGrade, findings: displasiaFindings, recommendation, p53Aberrant: displasiaFindings.some(d => d.p53Support) };
-        };
-
-        // ==================== NOTE METODOLOGICHE ====================
-        const detectContradictoryPatterns = () => {
-            const notes = [];
-            const isAllNormal = specimens.every(s => {
-                const f = s.findings;
-                if (s.siteType === 'ileum') return f.granulomi_epitelioidi === 'assente' && f.neutrofili_lamina_propria === 'assente' && f.erosioni_ulcerazioni === 'assente' && f.atrofia_villi === 'assente' && f.plasmacellule_aumentate === 'assente';
-                else return f.granulomi_epitelioidi === 'assente' && f.neutrofili_epitelio === 'assente' && f.ascessi_criptici === 'assente' && f.plasmacellule_basale === 'assente' && f.distorsione_architettura === 'assente' && f.ulcerazione === 'assente';
-            });
-            if (isAllNormal) return notes;
-            const hasGranulomas = specimens.some(s => s.findings.granulomi_epitelioidi === 'presente');
-            const hasUCPattern = specimens.some(s => s.findings.plasmacellule_basale === 'presente' || s.findings.distorsione_architettura === 'presente');
-            const scoring = calculateScoring();
-            if (hasGranulomas && hasUCPattern) {
-                notes.push({ type: 'CONTRADDITTORIO', title: 'Pattern contraddittorio: Granulomi + Cronicità tipo RCU',
-                    features: ['Granulomi epitelioidi (caratteristica Crohn)', 'Alterazioni croniche tipo RCU (plasmacellule basali, distorsione di architettura)'],
-                    interpretation: 'Scoring a fini DESCRITTIVI; affidabilità LIMITATA per features contraddittorie.',
-                    suggestion: 'Pattern suggerisce IBDU con caratteristiche sovrapposte. Rivalutazione con follow-up clinico-istologico NECESSARIA.' });
-            }
-            if (!hasGranulomas && scoring.scores.crohn > 60) {
-                const hasTransmuralEquivalent = specimens.some(s => s.findings.fibrosi_sottomucosa === 'marcata');
-                if (!hasTransmuralEquivalent) {
-                    notes.push({ type: 'LIMITAZIONE', title: 'Crohn senza features patognomoniche',
-                        features: ['Pattern Crohn ma ASSENZA granulomi epitelioidi', 'ASSENZA evidenza di transmuralità', '⚠️ Biopsia mucosa NON dimostra transmuralità'],
-                        interpretation: 'Diagnosi basata su criteri ASPECIFICI. Granulomi assenti nel 30-50% dei Crohn bioptici.',
-                        suggestion: 'IMAGING MANDATORIO: entero-RM o TC per ispessimento parietale, fistole, stenosi, coinvolgimento mesenterico.' });
-                }
-            }
-            if (Math.abs(scoring.scores.crohn - scoring.scores.uc) < 15) {
-                notes.push({ type: 'INCERTEZZA', title: 'Pattern Crohn/RCU sovrapponibile',
-                    features: ['Differenza tra orientamento Crohn e RCU non significativa'],
-                    interpretation: 'Istologia INSUFFICIENTE per diagnosi definitiva.',
-                    suggestion: 'Richiede: distribuzione endoscopica, imaging, risposta terapeutica, evoluzione clinica.' });
-            }
-            return notes;
-        };
-
-        const validateClinicalLogic = () => {
-            const warnings = [];
-            specimens.forEach(specimen => {
-                const f = specimen.findings;
-                const siteType = specimen.siteType || 'colon';
-                if (f.granulomi_epitelioidi === 'presente') {
-                    if (specimen.mucinGranulomaLikely) {
-                        warnings.push({ type: 'GRANULOMA_CAUTION', site: specimen.site,
-                            message: `🔍 ${specimen.site.toUpperCase()}: Granulomi marcati come "possibile rottura criptale"`,
-                            severity: 'medium',
-                            suggestion: 'Escludere granuloma mucinoso. Se persistono dubbi, considerare PAS-D.' });
-                    } else if (siteType === 'ileum') {
-                        if (f.atrofia_villi === 'assente' && f.plasmacellule_aumentate === 'assente') {
-                            warnings.push({ type: 'DIAGNOSTIC_ALERT', site: specimen.site,
-                                message: `🔍 ${specimen.site.toUpperCase()} (ILEO): Granulomi epitelioidi SENZA alterazioni croniche`,
-                                severity: 'high',
-                                suggestion: 'Considerare: TBC, Yersinia, sarcoidosi, Crohn precoce. Colorazioni Ziehl-Neelsen, PCR Mycobacterium.' });
-                        }
-                    } else {
-                        if (f.distorsione_architettura === 'assente' && f.plasmacellule_basale === 'assente') {
-                            warnings.push({ type: 'DIAGNOSTIC_ALERT', site: specimen.site,
-                                message: `🔍 ${specimen.site.toUpperCase()}: Granulomi epitelioidi SENZA alterazioni croniche`,
-                                severity: 'high',
-                                suggestion: 'Considerare: TBC, sarcoidosi, Crohn precoce, iatrogeni. DD infettiva richiede colorazioni specifiche.' });
-                        }
-                    }
-                }
-            });
-            return warnings;
-        };
-
-        // FIX #3: rimossa guardia simulation che sopprimeva il flag MDT per casi da diagnosi veloce
-        const shouldFlagMDT = (report) => {
-            const reasons = [];
-            if (report.contradictoryNotes && report.contradictoryNotes.length > 0) reasons.push('Pattern contraddittorio');
-            if (report.scoring.scores.ibdu >= 40) reasons.push('IBDU score elevato');
-            if (report.dysplasiaReport && (report.ihcData.p53_pattern === 'overexpression' || report.ihcData.p53_pattern === 'null')) reasons.push('Displasia con p53 aberrante');
-            if (Math.abs(report.scoring.scores.crohn - report.scoring.scores.uc) < 15 && report.scoring.scores.crohn >= 30 && report.scoring.scores.uc >= 30) reasons.push('Orientamento Crohn/RCU indistinguibile');
-            return reasons.length > 0 ? reasons : null;
-        };
-
         // ==================== GENERATE REPORT ====================
         const generateReport = () => {
             const scoring = calculateScoring();
-            const interpretation = interpretScoringGraduated(scoring.scores);
+            const interpretation = interpretScoringGraduated(scoring);
             const contradictoryNotes = detectContradictoryPatterns();
             const nancy = calculateNancyIndex();
             const topoPattern = analyzeTopographicPattern();
@@ -916,11 +504,17 @@
             const sedi = specimenList.map(s => SITE_LABELS[s.site] || s.site);
             return 'Sedi esaminate: ' + sedi.join(', ') + '.';
         };
-        const SPECIAL_SITES = ['pouch', 'anastomosi'];
+        const SPECIAL_SITES = IBDEngine.SPECIAL_SITES;
         const LEFT_EXTENDED_SITES = ['discendente', 'sigma', 'retto'];
 
+        // v3.2.0 — elenco unico delle voci per tipo di sede. Erano quattro copie letterali
+        // (wizard, salvataggio, form di modifica, aggiornamento): aggiungere una voce in una
+        // sola di esse la rendeva compilabile e mai salvata.
+        const COLON_FINDING_KEYS = ['granulomi_epitelioidi','neutrofili_epitelio','neutrofili_lamina_propria','ascessi_criptici','plasmacellule_basale','distorsione_architettura','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
+        const ILEUM_FINDING_KEYS = ['granulomi_epitelioidi','neutrofili_lamina_propria','erosioni_ulcerazioni','iperplasia_linfoide','edema_lamina_propria','atrofia_villi','plasmacellule_aumentate','fibrosi_sottomucosa'];
+
         const DEFAULT_COLON_FINDINGS = {
-            granulomi_epitelioidi: 'assente', neutrofili_epitelio: 'assente', ascessi_criptici: 'assente',
+            granulomi_epitelioidi: 'assente', neutrofili_epitelio: 'assente', neutrofili_lamina_propria: 'assente', ascessi_criptici: 'assente',
             plasmacellule_basale: 'assente', distorsione_architettura: 'assente', metaplasia_paneth: 'assente',
             ulcerazione: 'assente', fibrosi_sottomucosa: 'assente', displasia: 'assente'
         };
@@ -1236,8 +830,8 @@
             if (!site) return;
             const isIleum = site === 'ileo';
             const keys = isIleum
-                ? ['granulomi_epitelioidi','neutrofili_lamina_propria','erosioni_ulcerazioni','iperplasia_linfoide','edema_lamina_propria','atrofia_villi','plasmacellule_aumentate','fibrosi_sottomucosa']
-                : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
+                ? ILEUM_FINDING_KEYS
+                : COLON_FINDING_KEYS;
             const findings = {};
             keys.forEach(k => { const el = document.getElementById(`finding-${wizardSiteIndex}-${k}`); if (el) findings[k] = el.value; });
             const mucinCb = document.getElementById(`mucin-granuloma-checkbox-${wizardSiteIndex}`);
@@ -1270,8 +864,8 @@
                 const findings = saved.findings || {};
                 if (Object.keys(findings).length === 0) {
                     const findingKeys = isIleum
-                        ? ['granulomi_epitelioidi','neutrofili_lamina_propria','erosioni_ulcerazioni','iperplasia_linfoide','edema_lamina_propria','atrofia_villi','plasmacellule_aumentate','fibrosi_sottomucosa']
-                        : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
+                        ? ILEUM_FINDING_KEYS
+                        : COLON_FINDING_KEYS;
                     findingKeys.forEach(key => { const el = document.getElementById(`finding-${siteIndex}-${key}`); if (el) findings[key] = el.value; });
                 }
                 specimens.push({ site, findings, siteType: isIleum ? 'ileum' : 'colon', mucinGranulomaLikely: saved.mucinGranulomaLikely || false, facPresente: saved.facPresente || false });
@@ -1447,6 +1041,7 @@
             const colonFindings = {
                 granulomi_epitelioidi: ['assente','sospetti','presente'],
                 neutrofili_epitelio: ['assente','lieve','moderata','marcata'],
+                neutrofili_lamina_propria: ['assente','lieve','moderata','marcata'],
                 ascessi_criptici: ['assente','presente'],
                 plasmacellule_basale: ['assente','presente'],
                 distorsione_architettura: ['assente','presente'],
@@ -1599,7 +1194,7 @@
             const isIleum = spec.siteType === 'ileum';
             const findingLabels = { granulomi_epitelioidi: 'Granulomi epitelioidi', neutrofili_epitelio: 'Neutrofili epitelio', neutrofili_lamina_propria: 'Neutrofili LP', ascessi_criptici: 'Ascessi criptici', plasmacellule_basale: 'Plasmacellule basale', distorsione_architettura: 'Distorsione architettura', erosioni_ulcerazioni: 'Erosioni/ulcerazioni', metaplasia_paneth: 'Metaplasia Paneth', ulcerazione: 'Ulcerazione', fibrosi_sottomucosa: 'Fibrosi sottomucosa', displasia: 'Displasia', iperplasia_linfoide: 'Iperplasia linfoide', edema_lamina_propria: 'Edema LP', atrofia_villi: 'Atrofia villi', plasmacellule_aumentate: 'Plasmacellule aumentate' };
             const findingOptions = { granulomi_epitelioidi: ['assente','presente','sospetti'], neutrofili_epitelio: ['assente','lieve','moderata','marcata'], neutrofili_lamina_propria: ['assente','lieve','moderata','marcata'], ascessi_criptici: ['assente','presente'], plasmacellule_basale: ['assente','presente'], distorsione_architettura: ['assente','presente'], erosioni_ulcerazioni: ['assente','presente'], metaplasia_paneth: ['assente','presente'], ulcerazione: ['assente','presente'], fibrosi_sottomucosa: ['assente','lieve','moderata','marcata'], displasia: ['assente','indefinita','LGD','HGD'], iperplasia_linfoide: ['assente','presente'], edema_lamina_propria: ['assente','presente'], atrofia_villi: ['assente','lieve','moderata','marcata'], plasmacellule_aumentate: ['assente','presente'] };
-            const findingKeys = isIleum ? ['granulomi_epitelioidi','neutrofili_lamina_propria','erosioni_ulcerazioni','iperplasia_linfoide','edema_lamina_propria','atrofia_villi','plasmacellule_aumentate','fibrosi_sottomucosa'] : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
+            const findingKeys = isIleum ? ILEUM_FINDING_KEYS : COLON_FINDING_KEYS;
             return `<div class="bg-amber-50 rounded-lg p-6 mb-6 border-2 border-amber-400">
                 <h3 class="text-xl font-bold mb-4 flex items-center gap-2">✏️ Modifica: <span>${SITE_LABELS[spec.site] || spec.site}</span></h3>
                 <div class="grid grid-cols-2 gap-4">
@@ -1797,7 +1392,7 @@
         const ScoringPreview = () => {
             if (specimens.length === 0) return '';
             const scoring = calculateScoring();
-            const interpretation = interpretScoringGraduated(scoring.scores);
+            const interpretation = interpretScoringGraduated(scoring);
             const topo = analyzeTopographicPattern();
 
             const header = `<div class="flex items-center justify-between mt-6 pt-4 border-t-2 border-gray-200 mb-2">
@@ -1819,7 +1414,10 @@
             const ucLabel    = getScoreLabel(scoring.scores.uc);
             const ibduLabel  = getScoreLabel(scoring.scores.ibdu);
 
+            const EVID_LBL = { solida: 'solida', moderata: 'moderata', insufficiente: 'insufficiente' };
+            const SEP_LBL = { netta: 'netta', moderata: 'moderata', ambigua: 'ambigua' };
             return header + `<div class="bg-gray-50 rounded-lg p-4 space-y-3 border border-gray-200">
+                <p class="text-xs text-gray-500">Orientamento <strong>relativo</strong> fra le ipotesi (non misura quanta evidenza c'è) — evidenza complessiva: <strong>${EVID_LBL[scoring.evidence.level]}</strong> (${scoring.evidence.nFindings} reperti su ${scoring.evidence.nSites} sedi), separazione Crohn/RCU: <strong>${SEP_LBL[scoring.separation.level]}</strong>.</p>
                 <div class="grid grid-cols-3 gap-2">
                     <div class="score-card ${crohnLabel.cls}">
                         <div><p class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Crohn</p>
@@ -1836,6 +1434,7 @@
                 </div>
                 <div class="epistemic-note p-3 rounded">
                     <p class="font-semibold text-sm">${interpretation.headline}</p>
+                    ${interpretation.concurrent ? `<p class="text-xs mt-1 text-indigo-800 bg-indigo-50 border border-indigo-200 rounded p-2">➕ Reperto concomitante: <strong>${interpretation.concurrent.headline}</strong></p>` : ''}
                     ${interpretation.epistemicNote ? `<p class="text-xs mt-1 text-yellow-800">${interpretation.epistemicNote}</p>` : ''}
                 </div>
                 ${topo.warning ? `<p class="text-xs text-orange-700 bg-orange-50 p-2 rounded border border-orange-200">${topo.warning}</p>` : ''}
@@ -1860,8 +1459,8 @@
             const spec = specimens[editingSpecimenIndex];
             const isIleum = spec.siteType === 'ileum';
             const findingKeys = isIleum
-                ? ['granulomi_epitelioidi','neutrofili_lamina_propria','erosioni_ulcerazioni','iperplasia_linfoide','edema_lamina_propria','atrofia_villi','plasmacellule_aumentate','fibrosi_sottomucosa']
-                : ['granulomi_epitelioidi','neutrofili_epitelio','ascessi_criptici','plasmacellule_basale','distorsione_architettura','metaplasia_paneth','ulcerazione','fibrosi_sottomucosa','displasia'];
+                ? ILEUM_FINDING_KEYS
+                : COLON_FINDING_KEYS;
             const newFindings = {};
             findingKeys.forEach(key => { const el = document.getElementById(`edit-finding-${key}`); if (el) newFindings[key] = el.value; });
             specimens[editingSpecimenIndex].findings = newFindings;
@@ -1955,7 +1554,11 @@
                     .replace(/Verifica[^.]*\.\s*/gi, '')
                     .trim();
                 if (descExtra) t += `${descExtra}\n`;
-
+            }
+            // v3.2.0 — reperto concomitante: l'interpretazione IBD non viene piu' scartata
+            // quando e' presente una colite microscopica/ischemica/da FANS.
+            if (report.interpretation.concurrent) {
+                t += `Reperto concomitante: ${report.interpretation.concurrent.headline}.\n`;
             }
 
             // ── DETTAGLIO PER SEDE ────────────────────────────────────────────
@@ -2182,7 +1785,7 @@
     </script>
 
     <div class="max-w-6xl mx-auto mt-8 text-xs text-gray-600 text-center p-4 bg-gray-100 rounded">
-        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.1.7</p>
+        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.2.0</p>
         <p class="mb-1">
             <strong>Novità:</strong> scoring live tab Campioni · toast non bloccanti al posto degli alert
         </p>
