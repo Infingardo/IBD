@@ -1,6 +1,6 @@
 {
   "name": "ibd-diagnostic-tool",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "private": true,
   "description": "Strumento di supporto decisionale per la diagnosi istologica delle IBD",
   "scripts": {
