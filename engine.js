@@ -426,10 +426,10 @@
                 if (level === 'alta' && !hasTrueGranulomas) level = 'probabile';
                 result.primary = 'Malattia di Crohn';
                 if (level === 'alta') {
-                    result.level = 'alta'; result.headline = 'Malattia di Crohn (pattern istologico fortemente suggestivo)';
-                    result.description = 'Pattern morfologico e architetturale fortemente indicativo per malattia di Crohn.';
+                    result.level = 'alta'; result.headline = 'Flogosi cronica con granulomi epitelioidi, quadro istologico compatibile con malattia di Crohn';
+                    result.description = 'Pattern morfologico e architetturale compatibile con malattia di Crohn.';
                 } else if (level === 'probabile') {
-                    result.level = 'probabile'; result.headline = 'Quadro compatibile con malattia di Crohn';
+                    result.level = 'probabile'; result.headline = 'Quadro compatibile con malattia di Crohn, da correlare con i dati clinici, endoscopici e radiologici';
                     result.description = 'Pattern morfologico compatibile con malattia di Crohn. Correlazione con dati clinici, endoscopici e imaging NECESSARIA.';
                     result.epistemicNote = hasTrueGranulomas
                         ? 'Criteri multipli ma non patognomonici. Conferma clinico-radiologica essenziale.'
@@ -465,11 +465,14 @@
             const ucLabelCap = ucLabel.charAt(0).toUpperCase() + ucLabel.slice(1);
             const remissionSuffix = isRemission ? ' in fase di remissione istologica' : '';
             result.primary = ucLabelCap;
+            // v3.3.0 — intestazione in forma refertabile: pattern morfologico + "compatibile con".
+            // Il livello "probabile" resta distinto esplicitando la correlazione richiesta.
+            const ucPattern = `${isProctitis ? 'Proctite' : 'Colite'} cronica ${hasAcuteActivity ? 'attiva' : 'quiescente'}`;
             if (level === 'alta') {
-                result.level = 'alta'; result.headline = `${ucLabelCap}${remissionSuffix} (pattern istologico fortemente suggestivo)`;
-                result.description = `Pattern morfologico e distributivo fortemente indicativo per ${ucLabel}${remissionSuffix}.`;
+                result.level = 'alta'; result.headline = `${ucPattern}, quadro istologico compatibile con ${ucLabel}${remissionSuffix}`;
+                result.description = `Pattern morfologico e distributivo compatibile con ${ucLabel}${remissionSuffix}.`;
             } else if (level === 'probabile') {
-                result.level = 'probabile'; result.headline = `Quadro compatibile con ${ucLabel}${remissionSuffix}`;
+                result.level = 'probabile'; result.headline = `${ucPattern}, quadro compatibile con ${ucLabel}${remissionSuffix}, da correlare con i dati clinico-endoscopici`;
                 result.description = `Pattern morfologico compatibile con ${ucLabel}${remissionSuffix}.${isRemission ? ' Persistono alterazioni architetturali croniche residue.' : ' Correlazione con distribuzione endoscopica NECESSARIA.'}`;
                 result.epistemicNote = isRemission ? null : 'Conferma con pattern topografico endoscopico (continuo, retto coinvolto, ileo indenne) essenziale.';
             } else {

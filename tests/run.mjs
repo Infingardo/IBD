@@ -77,6 +77,7 @@ section('la tabella che ha motivato la riscrittura');
   const rcu = interpret(st(['retto','sigma','discendente','trasverso'].map(x => col(x, UC()))));
   eq('RCU conclamata 4 sedi → alta', rcu.level, 'alta');
   check('nomina la rettocolite ulcerosa', /ulcerosa/i.test(rcu.headline), rcu.headline);
+  check('intestazione refertabile: "compatibile con"', /^Colite cronica attiva, quadro istologico compatibile con/.test(rcu.headline), rcu.headline);
 
   const abscess = interpret(st([col('retto', { ascessi_criptici:'presente' })]));
   eq('ascessi criptici isolati → aspecifico', abscess.level, 'insufficiente');
