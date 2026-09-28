@@ -709,7 +709,12 @@
                 showToast(`Campioni generati: ${opt?.label || diagnosiCode}`, 'success');
             };
 
-            if (DIAGNOSI_CON_NANCY.includes(diagnosiCode)) {
+            // Crohn noto in remissione: Nancy non è validato per il Crohn e il grado è implicito
+            // (alterazioni croniche residue, nessuna attività) — nessuna domanda.
+            if (diagnosiCode === 'IBD_REMISSIONE' && ibdNota.enabled && ibdNota.diagnosiAttuale === 'Crohn') {
+                generateSpecimensFromDiagnosi(diagnosiCode, 1);
+                finalize();
+            } else if (DIAGNOSI_CON_NANCY.includes(diagnosiCode)) {
                 const isRemission = diagnosiCode === 'IBD_REMISSIONE';
                 // Nancy ha senso solo in follow-up RCU nota: chiedi il grado solo in quel caso.
                 // In prima diagnosi chiedi solo il "grado di attività" (senza etichetta Nancy).
@@ -1014,7 +1019,7 @@
                                 class="p-3 rounded-lg text-sm font-medium transition-all bg-white border-2 border-green-300 hover:bg-green-100 hover:border-green-500 text-left">
                                 <span class="text-xl">${opt.emoji}</span>
                                 <span class="block text-xs mt-1 font-bold">${opt.label}</span>
-                                ${DIAGNOSI_CON_NANCY.includes(opt.codice) ? `<span class="block text-xs text-green-600">→ ${ibdNota.enabled && ibdNota.diagnosiAttuale === 'RCU' ? 'chiede Nancy' : 'chiede grado attività'}</span>` : ''}
+                                ${DIAGNOSI_CON_NANCY.includes(opt.codice) && !(opt.codice === 'IBD_REMISSIONE' && ibdNota.enabled && ibdNota.diagnosiAttuale === 'Crohn') ? `<span class="block text-xs text-green-600">→ ${ibdNota.enabled && ibdNota.diagnosiAttuale === 'RCU' ? 'chiede Nancy' : 'chiede grado attività'}</span>` : ''}
                             </button>`).join('')}
                     </div>
                 </div>
@@ -1493,7 +1498,11 @@
                 const dLabel = report.ibdNota.diagnosiAttuale === 'RCU' ? 'rettocolite ulcerosa'
                              : report.ibdNota.diagnosiAttuale === 'Crohn' ? 'malattia di Crohn'
                              : 'IBD non classificata';
-                t += `Quadro istologico di IBD compatibile, alla luce della storia clinica, con ${dLabel}.\n`;
+                // Remissione: scelta esplicita "IBD in remissione" o nessuna sede attiva.
+                const inRemissione = report.diagnosiVeloce.selected === 'IBD_REMISSIONE'
+                    || (specimens.length > 0 && !specimens.some(s => isSpecimenActive(s)));
+                const remSuffix = inRemissione ? ' in fase di remissione istologica' : '';
+                t += `Quadro istologico di IBD compatibile, alla luce della storia clinica, con ${dLabel}${remSuffix}.\n`;
                 if (report.nancy.applicable) {
                     t += `\nNancy Histological Index = ${report.nancy.score}/4 — ${report.nancy.interpretation.label}`;
                     t += ` (Marchal-Bressenot et al., Gut 2017)\n`;
