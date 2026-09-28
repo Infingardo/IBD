@@ -615,7 +615,7 @@
         // sono riassunti a livello di caso da describeCaseNegatives, per non ripeterli a ogni riga.
         const RIGHT_COLON_PANETH = ['cieco', 'ascendente'];
         const joinIt = arr => arr.length <= 1 ? (arr[0] || '')
-            : arr.slice(0, -1).join(', ') + ' e ' + arr[arr.length - 1];
+            : arr.slice(0, -1).join(', ') + (/^e/i.test(arr[arr.length - 1]) ? ' ed ' : ' e ') + arr[arr.length - 1];
 
         // Grado di attivita' per sede (colon): ulcerazione > ascessi / criptite moderata-marcata >
         // criptite lieve o neutrofili solo in lamina propria. Stesso criterio del grading della
