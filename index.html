@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IBD Diagnostic Tool v3.2.0</title>
+    <title>IBD Diagnostic Tool v3.3.0</title>
     <script src="./vendor/tailwind.js"></script>
-    <script src="./engine.js?v=3.2.0"></script>
+    <script src="./engine.js?v=3.3.0"></script>
     <style>
         body, body *, h1, h2, h3, h4, h5, h6, p, div, span, td, th, li, button, input, select {
             font-family: Arial, sans-serif !important;
@@ -228,13 +228,13 @@
         <!-- Header -->
         <div class="mb-4 border-b pb-4">
             <h1 class="text-3xl font-bold text-blue-900 mb-2">
-                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.2.0</span>
+                IBD Diagnostic Tool <span class="text-lg text-gray-600">v3.3.0</span>
             </h1>
             <p class="text-sm text-gray-600">
                 Supporto diagnosi differenziale Malattie Infiammatorie Croniche Intestinali
             </p>
             <p class="text-xs text-gray-500 mt-1">
-                v3.2.0: evidenza separata dall’orientamento · Nancy: ascessi criptici e neutrofili LP · motore estratto e testato · v3.1.7: citazione Nancy Index
+                v3.3.0: referto con descrizione microscopica per sede, distribuzione ed estensione dimostrata · v3.2.0: evidenza separata dall’orientamento · Nancy: ascessi criptici e neutrofili LP · motore estratto e testato · v3.1.7: citazione Nancy Index
             </p>
         </div>
 
@@ -275,7 +275,7 @@
     </div>
 
     <script>
-        const APP_VERSION = '3.2.0';
+        const APP_VERSION = '3.3.0';
         const STORAGE_KEY = 'ibdAppDataV310';
         const DISCLAIMER_KEY = 'ibdDisclaimerAccepted';
 
@@ -1567,20 +1567,33 @@
                 if (sediLine) t += `\n${sediLine}`;
                 return t;
             }
-            t += `\nDettaglio per sede:\n`;
-            const isColiteInfettiva = report.diagnosiVeloce.selected === 'COLITE_INFETTIVA';
-            specimens.forEach(s => {
-                let statoLabel;
-                if (isColiteInfettiva && s.siteType !== 'ileum') {
-                    const f = s.findings;
-                    if (f.ulcerazione === 'presente') statoLabel = 'Severa';
-                    else if (f.neutrofili_epitelio === 'moderata' || f.neutrofili_epitelio === 'marcata' || f.ascessi_criptici === 'presente') statoLabel = 'Moderata';
-                    else if (f.neutrofili_epitelio === 'lieve') statoLabel = 'Lieve';
-                    else statoLabel = 'Inattiva';
-                } else {
-                    const active = isSpecimenActive(s);
-                    statoLabel = active ? 'Attiva' : (s.siteType === 'ileum' ? 'Nella norma' : 'Quiescente');
+            // v3.3.0 — per i quadri IBD / infettivi / FAC la riga per sede e' una descrizione
+            // morfologica generata dai reperti. Colite microscopica, ischemica e da FANS
+            // mantengono l'etichetta sintetica: i loro reperti chiave (banda collagene, IEL,
+            // atrofia ischemica) non stanno nei campi per sede e la descrizione li ometterebbe.
+            const DIAGNOSI_DESCRITTIVE_SINTETICHE = ['COLITE_COLLAGENA','COLITE_LINFOCITICA','COLITE_ISCHEMICA','COLITE_FANS'];
+            const isDescrittivaSintetica = DIAGNOSI_DESCRITTIVE_SINTETICHE.includes(report.diagnosiVeloce.selected);
+            const isQuadroIBD = !DIAGNOSI_TESTO_FISSO.includes(report.diagnosiVeloce.selected) && report.diagnosiVeloce.selected !== 'COLITE_FAC';
+            if (!isDescrittivaSintetica) {
+                t += `\nDescrizione microscopica per sede:\n`;
+                specimens.forEach(s => {
+                    const d = E.describeSpecimenMorphology(s);
+                    t += `- ${SITE_LABELS[s.site] || s.site}: ${d.charAt(0).toUpperCase()}${d.slice(1)}`;
+                    if (s.facPresente) t += ` [FAC]`;
+                    t += `\n`;
+                });
+                const conclusioni = [];
+                if (isQuadroIBD) {
+                    const distr = E.describeDistribution(currentState());
+                    if (distr) conclusioni.push(distr);
                 }
+                conclusioni.push(...E.describeCaseNegatives(currentState()));
+                if (conclusioni.length) t += `\n${conclusioni.join('\n')}\n`;
+            }
+            if (isDescrittivaSintetica) t += `\nDettaglio per sede:\n`;
+            if (isDescrittivaSintetica) specimens.forEach(s => {
+                const active = isSpecimenActive(s);
+                const statoLabel = active ? 'Attiva' : (s.siteType === 'ileum' ? 'Nella norma' : 'Quiescente');
                 t += `- ${SITE_LABELS[s.site] || s.site}: ${statoLabel}`;
                 if (s.findings.fibrosi_sottomucosa && s.findings.fibrosi_sottomucosa !== 'assente')
                     t += `, fibrosi sottomucosa ${s.findings.fibrosi_sottomucosa}`;
@@ -1785,7 +1798,7 @@
     </script>
 
     <div class="max-w-6xl mx-auto mt-8 text-xs text-gray-600 text-center p-4 bg-gray-100 rounded">
-        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.2.0</p>
+        <p class="font-semibold mb-1">IBD Diagnostic Tool v3.3.0</p>
         <p class="mb-1">
             <strong>Novità:</strong> scoring live tab Campioni · toast non bloccanti al posto degli alert
         </p>

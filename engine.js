@@ -450,9 +450,17 @@
                 s.findings.ascessi_criptici === 'presente' || s.findings.ulcerazione === 'presente'
             ));
             const isRemission = st.diagnosiVeloce.selected === 'IBD_REMISSIONE' || !hasAcuteActivity;
-            const isProctitis = activeSites.length === 1 && activeSites.includes('retto');
+            // v3.3.0 — l'estensione (proctite / sinistra) e' affermabile solo se il campionamento
+            // dimostra mucosa indenne a monte della malattia. Prima retto+sigma soli, entrambi
+            // coinvolti, uscivano come "rettocolite ulcerosa sinistra": estensione inferita da
+            // sedi mai campionate.
+            const sampledSites = st.specimens.map(s => s.site);
             const leftSites = ['retto','sigma','discendente'], rightSites = ['trasverso','ascendente','cieco'];
-            const isLeftSided = activeSites.every(s => leftSites.includes(s)) && activeSites.includes('retto') && !activeSites.some(s => rightSites.includes(s));
+            const sampledUninvolved = sites => sites.some(x => sampledSites.includes(x) && !activeSites.includes(x));
+            const isProctitis = activeSites.length === 1 && activeSites.includes('retto')
+                && sampledUninvolved(['sigma','discendente','trasverso','ascendente','cieco']);
+            const isLeftSided = activeSites.every(s => leftSites.includes(s)) && activeSites.includes('retto')
+                && sampledUninvolved(rightSites);
             const ucLabel = isProctitis ? 'proctite ulcerosa' : (isLeftSided && !isProctitis) ? 'rettocolite ulcerosa sinistra' : 'rettocolite ulcerosa';
             const ucLabelCap = ucLabel.charAt(0).toUpperCase() + ucLabel.slice(1);
             const remissionSuffix = isRemission ? ' in fase di remissione istologica' : '';
@@ -600,6 +608,125 @@
             return warnings;
         };
 
+        // ==================== DESCRIZIONE MICROSCOPICA (REFERTO) ====================
+        // v3.3.0 — il referto riportava per sede solo "Attiva"/"Quiescente". Qui i reperti
+        // registrati diventano una descrizione morfologica: pattern (cronicita' / attivita'),
+        // grado di attivita', reperti positivi. I negativi pertinenti (granulomi, displasia)
+        // sono riassunti a livello di caso da describeCaseNegatives, per non ripeterli a ogni riga.
+        const RIGHT_COLON_PANETH = ['cieco', 'ascendente'];
+        const joinIt = arr => arr.length <= 1 ? (arr[0] || '')
+            : arr.slice(0, -1).join(', ') + ' e ' + arr[arr.length - 1];
+
+        // Grado di attivita' per sede (colon): ulcerazione > ascessi / criptite moderata-marcata >
+        // criptite lieve o neutrofili solo in lamina propria. Stesso criterio del grading della
+        // colite infettiva gia' presente nel referto, esteso alla lamina propria.
+        const colonActivityGrade = (f) => {
+            if (f.ulcerazione === 'presente') return 'severa';
+            if (f.ascessi_criptici === 'presente' || f.neutrofili_epitelio === 'moderata' || f.neutrofili_epitelio === 'marcata') return 'moderata';
+            if (f.neutrofili_epitelio === 'lieve' || fval(f, 'neutrofili_lamina_propria') !== 'assente') return 'lieve';
+            return null;
+        };
+
+        const describeGranulomas = (specimen) => {
+            const g = specimen.findings.granulomi_epitelioidi;
+            if (g === 'presente') return specimen.mucinGranulomaLikely
+                ? 'granulomi in rapporto a rottura criptica (criptolitici), di scarso valore discriminante'
+                : 'granulomi epitelioidi non in rapporto a rottura criptica';
+            if (g === 'sospetti') return 'aggregati istiocitari di incerta natura granulomatosa';
+            return null;
+        };
+
+        const describeSpecimenMorphology = (specimen) => {
+            const f = specimen.findings || {};
+            if (specimen.siteType === 'ileum') {
+                const activity = [], chronic = [], other = [];
+                if (fval(f, 'neutrofili_lamina_propria') !== 'assente') activity.push(`infiltrato neutrofilo ${f.neutrofili_lamina_propria} della lamina propria`);
+                if (f.erosioni_ulcerazioni === 'presente') activity.push('erosioni/ulcerazioni');
+                if (fval(f, 'atrofia_villi') !== 'assente') chronic.push(`atrofia dei villi di grado ${f.atrofia_villi}`);
+                if (f.plasmacellule_aumentate === 'presente') chronic.push('incremento della componente plasmacellulare');
+                const gr = describeGranulomas(specimen); if (gr) other.push(gr);
+                if (f.iperplasia_linfoide === 'presente') other.push('iperplasia linfoide');
+                if (f.edema_lamina_propria === 'presente') other.push('edema della lamina propria');
+                if (fval(f, 'fibrosi_sottomucosa') !== 'assente') other.push(`fibrosi sottomucosa ${f.fibrosi_sottomucosa}`);
+                let head;
+                if (activity.length && chronic.length) head = 'ileite cronica attiva';
+                else if (activity.length) head = 'ileite attiva';
+                else if (chronic.length) head = 'ileite cronica inattiva';
+                else if (other.length) head = 'mucosa ileale con alterazioni aspecifiche';
+                else return 'mucosa ileale con architettura villosa conservata, senza alterazioni infiammatorie significative.';
+                const parts = [...chronic, ...activity, ...other];
+                return `${head}: ${joinIt(parts)}.`;
+            }
+
+            const chronic = [], activity = [], other = [];
+            if (f.distorsione_architettura === 'presente') chronic.push('distorsione dell’architettura criptica');
+            if (f.plasmacellule_basale === 'presente') chronic.push('plasmocitosi basale');
+            if (f.metaplasia_paneth === 'presente') {
+                // Le cellule di Paneth sono fisiologiche nel colon destro: non sono metaplasia.
+                if (RIGHT_COLON_PANETH.includes(specimen.site)) other.push('cellule di Paneth (reperto fisiologico in questa sede)');
+                else chronic.push('metaplasia a cellule di Paneth');
+            }
+            if (f.neutrofili_epitelio && f.neutrofili_epitelio !== 'assente') activity.push(`criptite ${f.neutrofili_epitelio}`);
+            if (f.ascessi_criptici === 'presente') activity.push('ascessi criptici');
+            if (fval(f, 'neutrofili_lamina_propria') !== 'assente') activity.push(`neutrofili in lamina propria (${f.neutrofili_lamina_propria})`);
+            if (f.ulcerazione === 'presente') activity.push('erosione/ulcerazione della mucosa');
+            const gr = describeGranulomas(specimen); if (gr) other.push(gr);
+            if (fval(f, 'fibrosi_sottomucosa') !== 'assente') other.push(`fibrosi sottomucosa ${f.fibrosi_sottomucosa}`);
+            const dys = { indefinita: 'aree indefinite per displasia', LGD: 'displasia di basso grado', HGD: 'displasia di alto grado' }[f.displasia];
+            if (dys) other.push(dys);
+
+            const grade = colonActivityGrade(f);
+            let head;
+            if (chronic.length && grade) head = `colite cronica attiva (attività ${grade})`;
+            else if (chronic.length) head = 'colite cronica quiescente';
+            else if (grade) head = `flogosi attiva (attività ${grade}) senza alterazioni di cronicità`;
+            else if (other.length) head = 'mucosa colica senza alterazioni infiammatorie di rilievo';
+            else return 'mucosa colica con architettura criptica conservata, senza alterazioni infiammatorie significative.';
+            const body = [];
+            if (chronic.length) body.push(joinIt(chronic));
+            if (activity.length) body.push(joinIt(activity));
+            if (other.length) body.push(joinIt(other));
+            return body.length ? `${head}: ${body.join('; ')}.` : `${head}.`;
+        };
+
+        // Negativi pertinenti a livello di caso: detti una volta sola, non a ogni sede.
+        const describeCaseNegatives = (st) => {
+            const out = [];
+            const specs = st.specimens;
+            if (specs.length && specs.every(s => (s.findings.granulomi_epitelioidi || 'assente') === 'assente'))
+                out.push('Non si osservano granulomi epitelioidi nelle sedi esaminate.');
+            const colon = specs.filter(s => s.siteType !== 'ileum');
+            if (colon.length && colon.every(s => (s.findings.displasia || 'assente') === 'assente'))
+                out.push('Negativo per displasia.');
+            return out;
+        };
+
+        // Distribuzione delle alterazioni, detta solo per quanto il campionamento consente.
+        const describeDistribution = (st) => {
+            const topo = analyzeTopographicPattern(st);
+            if (st.specimens.some(s => SPECIAL_SITES.includes(s.site))) return null;
+            const involved = st.specimens.filter(hasInflammatoryFindings);
+            if (involved.length === 0) return null;
+            const bits = [];
+            if (topo.continuity === 'continua') bits.push('alterazioni a distribuzione continua');
+            else if (topo.continuity === 'discontinua') bits.push('alterazioni a distribuzione discontinua (sedi indenni interposte a sedi coinvolte)');
+            else if (topo.continuity === 'indeterminabile') bits.push('continuità non valutabile per sedi intermedie non campionate');
+            if (!topo.rectumSampled) bits.push('retto non campionato');
+            else bits.push(topo.rectumInvolved ? 'retto coinvolto' : 'retto risparmiato');
+            if (topo.ileumSampled) bits.push(topo.ileumInvolved ? 'ileo coinvolto' : 'ileo indenne');
+            // Estensione prossimale: dimostrabile solo con una sede campionata e indenne a monte.
+            const colonOrder = ['cieco','ascendente','trasverso','discendente','sigma','retto'];
+            const colonSpecs = st.specimens.filter(s => colonOrder.includes(s.site));
+            const involvedIdx = colonSpecs.filter(hasInflammatoryFindings).map(s => colonOrder.indexOf(s.site));
+            if (involvedIdx.length) {
+                const mostProximal = Math.min(...involvedIdx);
+                const cleanAbove = colonSpecs.some(s => colonOrder.indexOf(s.site) < mostProximal && !hasInflammatoryFindings(s));
+                if (!cleanAbove && mostProximal > 0) bits.push('estensione prossimale non definibile sul campionamento disponibile');
+            }
+            const txt = bits.join('; ');
+            return 'Distribuzione: ' + txt + '.';
+        };
+
         // FIX #3: rimossa guardia simulation che sopprimeva il flag MDT per casi da diagnosi veloce
         const shouldFlagMDT = (report) => {
             const reasons = [];
@@ -622,6 +749,8 @@
     isMorphologicallyNormal: isMorphologicallyNormal, interpretAltreColiti: interpretAltreColiti,
     interpretIBDPattern: interpretIBDPattern, interpretScoringGraduated: interpretScoringGraduated,
     generateDysplasiaReport: generateDysplasiaReport,
+    describeSpecimenMorphology: describeSpecimenMorphology, describeCaseNegatives: describeCaseNegatives,
+    describeDistribution: describeDistribution, colonActivityGrade: colonActivityGrade,
     detectContradictoryPatterns: detectContradictoryPatterns,
     validateClinicalLogic: validateClinicalLogic, shouldFlagMDT: shouldFlagMDT,
     EVIDENCE_FLOOR: EVIDENCE_FLOOR, IBDU_CONTRADICTION: IBDU_CONTRADICTION,

@@ -182,6 +182,37 @@ section('pattern topografico');
     JSON.stringify({ skip: misto.skipLesions, ind: misto.skipLesionsIndeterminate }));
 }
 
+section('estensione RCU e descrizione microscopica (v3.3.0)');
+{
+  // retto + sigma coinvolti e nient'altro campionato: "sinistra" non e' dimostrabile
+  const dueSedi = interpret(st(['retto','sigma'].map(x => col(x, UC()))));
+  check('retto+sigma soli → non "sinistra"', !/sinistra/i.test(dueSedi.headline), dueSedi.headline);
+  const conTrasverso = interpret(st([col('retto', UC()), col('sigma', UC()), col('discendente', UC()), col('trasverso', {})]));
+  check('trasverso campionato indenne → "sinistra"', /sinistra/i.test(conTrasverso.headline), conTrasverso.headline);
+  const soloRetto = interpret(st([col('retto', UC())]));
+  check('solo retto campionato → non "proctite"', !/proctite/i.test(soloRetto.headline), soloRetto.headline);
+
+  const d = E.describeSpecimenMorphology(col('sigma', UC()));
+  check('RCU attiva → colite cronica attiva moderata', /colite cronica attiva \(attività moderata\)/.test(d), d);
+  check('elenca la plasmocitosi basale', /plasmocitosi basale/.test(d), d);
+  check('elenca gli ascessi criptici', /ascessi criptici/.test(d), d);
+  const q = E.describeSpecimenMorphology(col('retto', { distorsione_architettura:'presente' }));
+  check('sola cronicita → quiescente', /quiescente/.test(q), q);
+  const sev = E.describeSpecimenMorphology(col('retto', UC({ ulcerazione:'presente' })));
+  check('ulcerazione → attivita severa', /attività severa/.test(sev), sev);
+  const pan = E.describeSpecimenMorphology(col('cieco', { metaplasia_paneth:'presente' }));
+  check('Paneth nel cieco non e metaplasia', !/metaplasia/.test(pan), pan);
+  check('mucosa muta → conservata', /conservata/.test(E.describeSpecimenMorphology(col('sigma', {}))));
+  check('ileo attivo', /ileite/.test(E.describeSpecimenMorphology(ile({ erosioni_ulcerazioni:'presente' }))));
+
+  const neg = E.describeCaseNegatives(st(['retto','sigma'].map(x => col(x, UC()))));
+  check('negativi: granulomi', neg.some(x => /granulomi/.test(x)), JSON.stringify(neg));
+  check('negativi: displasia', neg.some(x => /displasia/.test(x)), JSON.stringify(neg));
+  const distr = E.describeDistribution(st(['retto','sigma'].map(x => col(x, UC()))));
+  check('distribuzione: continua, retto coinvolto', /continua/.test(distr) && /retto coinvolto/.test(distr), distr);
+  check('distribuzione: estensione non definibile', /non definibile/.test(distr), distr);
+}
+
 section('purezza e forma');
 {
   const s = st([col('sigma', UC())]);
